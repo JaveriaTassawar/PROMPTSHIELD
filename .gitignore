@@ -1,0 +1,30 @@
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Python / backend / ml
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Env & secrets
+.env
+.env.local
+
+# Databases
+*.db
+*.sqlite3
+
+# ML data & models (kept local, too large for git)
+ml/data/*.csv
+!ml/data/sample_1000.csv
+ml/data/*.parquet
+ml/models/*.bin
+ml/models/*.safetensors
+ml/models/checkpoints/
+
+# OS / editor
+.DS_Store
+.vscode/
