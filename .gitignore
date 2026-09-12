@@ -18,12 +18,24 @@ venv/
 *.sqlite3
 
 # ML data & models (kept local, too large for git)
+# NOTE: the raw datasets live OUTSIDE this repo, at ../dataset/ (~1.6 GB).
+# Nothing there is ever committed. These rules are a second line of defence
+# in case anything gets copied into ml/data/.
+ml/data/raw/
+ml/data/processed/
 ml/data/*.csv
-!ml/data/sample_1000.csv
 ml/data/*.parquet
+ml/data/*.json
+ml/data/*.jsonl
+ml/data/*.tsv
+!ml/data/sample_1000.csv
 ml/models/*.bin
 ml/models/*.safetensors
 ml/models/checkpoints/
+
+# Hugging Face token — never commit
+.huggingface/
+hf_token*
 
 # OS / editor
 .DS_Store

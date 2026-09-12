@@ -46,4 +46,4 @@ python training/evaluate.py                # reports accuracy / F1
 
 The full 2M-row training dataset is too large for git and is **not** committed — keep it locally at `ml/data/` (the path `prepare_dataset.py` expects). A small labeled sample (`ml/data/sample_1000.csv`) is committed for reference. Trained model weights are also excluded from git; see `ml/models/MODEL_CARD.md` for where they're hosted once trained.
 
-See `tasks/TASKS.md` for the full build plan and progress tracker.
+See `tasks/MASTER_PLAN.md` for the full build plan and progress tracker. Per-track detail lives in `ml/TASKS.md`, `backend/TASKS.md`, `frontend/TASKS.md`, and `docs/TESTING_TASKS.md`.
