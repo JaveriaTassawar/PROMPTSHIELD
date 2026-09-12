@@ -152,7 +152,7 @@ pip install -r requirements.txt
 
 ### Dataset Prep
 
-#### 🔵 Task 13 — Set up folders and dependencies
+#### ✅ Task 13 — Set up folders and dependencies — **done** (commit `7bdc06c`)
 
 **13.1** Create the folder structure.
 ```bash
@@ -179,7 +179,9 @@ python -c "import pandas, pyarrow, transformers, torch, sklearn; print('all ok')
 
 ---
 
-#### 🟡 Task 14 — `preprocessing/download_datasets.py`
+#### ✅ Task 14 — `preprocessing/download_datasets.py` — **done** (commit `e33dfb2`)
+
+_Verified: 18 copied, 2 skipped, 0 failed → 20 files in `data/raw/`; the six largest match the originals byte for byte._
 
 All 20 files are **already downloaded** to `C:\Users\DELL\Desktop\FYP\dataset\`. This script copies them into `data/raw/` and re-fetches anything missing.
 
@@ -209,7 +211,9 @@ ls data/raw/ | wc -l
 
 ---
 
-#### 🟡 Task 15 — `preprocessing/inspect_sources.py`
+#### ✅ Task 15 — `preprocessing/inspect_sources.py` — **done** (commit `d347f46`)
+
+_Verified: all 20 files parse; every pinned row count matches — BIPIA 70,000, llmail 160,741 + 37,303, WildJailbreak 261,559, Attack_600 600, old CSV 2,000,000._
 
 Prove every file is what section 2 says it is, *before* writing any mapping logic.
 
@@ -235,7 +239,7 @@ Prove every file is what section 2 says it is, *before* writing any mapping logi
 
 ---
 
-#### 🟡 Task 16 — `preprocessing/map_labels.py`
+#### 🔵 Task 16 — `preprocessing/map_labels.py` — **next up**
 
 One adapter per source. Every adapter returns the same shape: `{text, label_3class, subtype, source}`.
 
