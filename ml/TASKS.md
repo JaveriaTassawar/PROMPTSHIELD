@@ -525,7 +525,31 @@ python preprocessing/split_dataset.py
 
 ---
 
-#### 🔵 Task 22 — `preprocessing/make_sample.py` — **next up**
+#### ✅ Task 22 — `preprocessing/make_sample.py` — **done**
+
+_**997 rows** written to `data/sample_1000.csv` (375 KB). All 3 classes and all 8 sub-types present._
+
+_**The filter runs before sampling, not after.** Filtering afterwards would punch holes in the quotas — a sub-type could lose most of its picks and end up barely represented._
+
+| Group | In dataset | Clean | Taken | Dropped |
+|---|---|---|---|---|
+| Safe | 213,037 | 207,289 | 333 | 2.7% |
+| Policy Evasion | 144,262 | 139,500 | 83 | 3.3% |
+| Web Content Injection | 145,354 | 143,146 | 83 | 1.5% |
+| Document Embedding | 34,089 | 33,231 | 83 | 2.5% |
+| Multi-Turn Manipulation | 6,477 | 6,410 | 83 | 1.0% |
+| **Persona Hijacking** | 1,698 | 1,345 | 83 | **20.8%** |
+| System Prompt Overwrite | 1,381 | 1,368 | 83 | 0.9% |
+| Tool Output Injection | 656 | 656 | 83 | 0.0% |
+| Role Override | 109 | 109 | 83 | 0.0% |
+
+_**14,009 rows dataset-wide failed the content filter.** Persona Hijacking's 20.8% was checked rather than assumed — the triggering terms are `sexual` (384), `sex` (289), `nsfw` (200), `fuck` (170), `porn` (80), `rape` (49). Those are genuine DAN-style prompts soliciting explicit output, not the blocklist over-matching. Makes sense: persona-replacement attacks are the ones most often used to chase explicit content._
+
+_**Quotas are floored, not purely proportional.** Role Override has 109 rows in the entire dataset; a proportional quota would give it 1–2 rows and effectively hide it. Each sub-type gets 83 so the taxonomy is legible from the sample alone._
+
+_Rows are truncated to 600 chars with a `...[truncated]` marker so the CSV opens cleanly in a spreadsheet and nobody mistakes a cut row for a full prompt._
+
+_⚠️ **22.2 still needs your eyes.** This is a machine pre-filter. The rows I read are clean, but you should page through the file before the viva — a blocklist cannot catch everything._
 
 **22.1** Write a stratified 1,000-row sampler covering all 3 classes and all 8 sub-types.
 **TEST:** print counts per class and per sub-type in the sample
@@ -540,7 +564,7 @@ python preprocessing/split_dataset.py
 
 ---
 
-#### 🟡 Task 23 — Commit the sample
+#### 🔵 Task 23 — Commit the sample — **next up**
 
 **23.1** Confirm git will ignore the big files but keep the sample.
 ```bash

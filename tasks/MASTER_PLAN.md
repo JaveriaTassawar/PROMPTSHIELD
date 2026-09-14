@@ -211,8 +211,8 @@ _**Full detail — dataset inventory, schema quirks, label mapping, Colab setup,
 > _Tasks 14–19 were each run twice: once against the original 20 sources, then again after three more were added. The figures above are the **current** ones. The first-pass numbers and what changed between them are recorded in the addendum in [`../ml/TASKS.md`](../ml/TASKS.md)._
 ✅ Task 20 — `split_dataset.py` — stratified split; **test set = real-world rows only**; no text overlap across splits — **done** (train 453,935 · val 50,438 · test 42,690 · synthetic_test 42,690; both hard rules verified)
 ✅ Task 21 — Run, confirm balance and zero cross-split overlap; down-sample Safe or set class weights — **done** (both rules re-verified; train balance 1.33× so **weighting chosen over down-sampling**; weights persisted to `class_weights.json` for Task 27)
-🔵 Task 22 — `make_sample.py` — stratified 1,000-row sample for git, **NSFW rows excluded by hand** — **next up**
-🟡 Task 23 — Run, commit sample (raw data + `clean.parquet` stay gitignored)
+✅ Task 22 — `make_sample.py` — stratified 1,000-row sample for git, **NSFW rows excluded by hand** — **done** (997 rows, all 8 sub-types, 14,009 explicit rows filtered dataset-wide; still needs a human read-through)
+🔵 Task 23 — Run, commit sample (raw data + `clean.parquet` stay gitignored) — **next up**
 
 **🔵 Backend DB Models (Task 38) and Frontend Scaffold & Auth (Task 67) can be worked on in parallel with all of the above — see Dependency Map.**
 
