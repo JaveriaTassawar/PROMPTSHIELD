@@ -483,7 +483,30 @@ _`synthetic_test.parquet` is sampled from rows already in train — deliberately
 
 ---
 
-#### 🔵 Task 21 — Run and verify the splits — **next up**
+#### ✅ Task 21 — Run and verify the splits — **done**
+
+_Re-verified from the saved files: test set `is_synthetic` is `[False]` only, and train∩val / train∩test / val∩test are all **0**._
+
+**21.4 class balance per split**
+
+| Split | Rows | Safe | Direct Jailbreak | Indirect Injection |
+|---|---|---|---|---|
+| train | 453,935 | 39.7% | 29.9% | 30.4% |
+| val | 50,438 | 39.7% | 29.9% | 30.4% |
+| test | 42,690 | 29.4% | 7.3% | 63.2% |
+| synthetic_test | 42,690 | 49.3% | 50.7% | 0.0% |
+
+_**Decision: weight, don't down-sample.** The training split's largest/smallest ratio is **1.33×** — mild. Down-sampling Safe to match would discard ~45,000 usable rows to fix something the model can absorb. Weighting keeps every row and costs nothing._
+
+_Added `preprocessing/class_weights.py`, which **persists** the weights to `data/processed/class_weights.json` — 21.4 says save them for Task 27, and a printout would not survive:_
+
+| Class | Weight |
+|---|---|
+| Direct Jailbreak | 1.1148 |
+| Indirect Injection | 1.0981 |
+| Safe | 0.8387 |
+
+_⚠️ **These are 3-class weights only.** The 8 sub-types are imbalanced ~1,300× (Web Content Injection 145,354 vs Role Override 109). Weighting cannot manufacture signal from 109 examples — that stays a `MODEL_CARD.md` limitation rather than something a multiplier hides._
 
 **21.1** Run it.
 ```bash
@@ -502,7 +525,7 @@ python preprocessing/split_dataset.py
 
 ---
 
-#### 🟡 Task 22 — `preprocessing/make_sample.py`
+#### 🔵 Task 22 — `preprocessing/make_sample.py` — **next up**
 
 **22.1** Write a stratified 1,000-row sampler covering all 3 classes and all 8 sub-types.
 **TEST:** print counts per class and per sub-type in the sample

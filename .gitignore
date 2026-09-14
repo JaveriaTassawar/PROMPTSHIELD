@@ -24,6 +24,11 @@ venv/
 # in case anything gets copied into ml/data/.
 ml/data/raw/
 ml/data/processed/
+# ...but class_weights.json is training CONFIG, not data. It is ~400 bytes
+# and training/train.py loads it, so a fresh clone must have it.
+!ml/data/processed/
+ml/data/processed/*
+!ml/data/processed/class_weights.json
 ml/data/*.csv
 ml/data/*.parquet
 ml/data/*.json
