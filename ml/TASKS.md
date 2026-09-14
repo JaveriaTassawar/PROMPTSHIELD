@@ -358,7 +358,19 @@ _⚠️ **Open risk for Task 20:** only 8,113 of 141,248 Direct Jailbreak rows a
 
 ---
 
-#### 🟡 Task 19 — Run it and confirm the counts
+#### ✅ Task 19 — Run it and confirm the counts — **done**
+
+_Added `preprocessing/verify_dataset.py` — a separate auditor that reads `clean.parquet` back rather than trusting the builder's own summary. All five checks pass, exit 0._
+
+| Check | Result |
+|---|---|
+| 19.1 File | 518,528 rows × 5 cols, 201.5 MB |
+| 19.2 Old CSV dedup | 2,000,000 → **1,040** unique (**1,923× duplication**) |
+| 19.3 Classes | all 3 present — Safe 197,263 · Indirect 180,017 · Direct 141,248 |
+| 19.4 Sub-types | all 8 present |
+| 19.5 Thin | **Role Override — 51 rows** (the only sub-type under 200) |
+
+_⚠️ **Carried into Task 20:** real-world rows per class are Indirect **100%**, Safe **34.5%**, but Direct Jailbreak only **5.7%** (8,113 of 141,248) — because 94% of that class is synthetic WildJailbreak. The real-world-only test set will be thin for Direct Jailbreak, and Role Override (51) / System Prompt Overwrite (68) can barely populate it._
 
 **19.1** Run the full pipeline.
 ```bash
@@ -380,7 +392,7 @@ python preprocessing/prepare_dataset.py
 
 ---
 
-#### 🟡 Task 20 — `preprocessing/split_dataset.py`
+#### 🔵 Task 20 — `preprocessing/split_dataset.py` — **next up**
 
 **20.1** Write `split(df)` — stratified train/val/test on `label_3class`.
 **TEST:** print each split's shape
