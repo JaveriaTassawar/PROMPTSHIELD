@@ -298,7 +298,9 @@ INDIRECT = "Indirect Injection"
 
 ---
 
-#### 🟡 Task 17 — Unit-test the adapters
+#### ✅ Task 17 — Unit-test the adapters — **done**
+
+_51 fast tests + 6 slow tests, all passing. Split by speed so the suite actually gets run: `pytest tests/ -v` covers the small sources in ~3.5 min; `pytest tests/ -v --slow` adds the four large-file adapters (WildJailbreak, llmail ×2, BIPIA). Beyond the four required checks, the suite also pins the two thinnest sub-types — Role Override and System Prompt Overwrite — so a mapping regression can't silently wipe them out, and asserts llmail still filters its `'Unclear'` rows._
 
 **17.1** Create `tests/test_map_labels.py`. Write one test asserting every adapter returns dicts with exactly the four required keys.
 **TEST:** `pytest tests/test_map_labels.py -v`
