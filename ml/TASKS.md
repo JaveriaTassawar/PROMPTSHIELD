@@ -152,7 +152,7 @@ pip install -r requirements.txt
 
 ### Dataset Prep
 
-#### 🔵 Task 13 — Set up folders and dependencies
+#### ✅ Task 13 — Set up folders and dependencies — **done** (commit `7bdc06c`)
 
 **13.1** Create the folder structure.
 ```bash
@@ -179,7 +179,9 @@ python -c "import pandas, pyarrow, transformers, torch, sklearn; print('all ok')
 
 ---
 
-#### 🟡 Task 14 — `preprocessing/download_datasets.py`
+#### ✅ Task 14 — `preprocessing/download_datasets.py` — **done** (commit `e33dfb2`)
+
+_Verified: 18 copied, 2 skipped, 0 failed → 20 files in `data/raw/`; the six largest match the originals byte for byte._
 
 All 20 files are **already downloaded** to `C:\Users\DELL\Desktop\FYP\dataset\`. This script copies them into `data/raw/` and re-fetches anything missing.
 
@@ -209,7 +211,9 @@ ls data/raw/ | wc -l
 
 ---
 
-#### 🟡 Task 15 — `preprocessing/inspect_sources.py`
+#### ✅ Task 15 — `preprocessing/inspect_sources.py` — **done** (commit `d347f46`)
+
+_Verified: all 20 files parse; every pinned row count matches — BIPIA 70,000, llmail 160,741 + 37,303, WildJailbreak 261,559, Attack_600 600, old CSV 2,000,000._
 
 Prove every file is what section 2 says it is, *before* writing any mapping logic.
 
@@ -235,7 +239,11 @@ Prove every file is what section 2 says it is, *before* writing any mapping logi
 
 ---
 
-#### 🟡 Task 16 — `preprocessing/map_labels.py`
+#### ✅ Task 16 — `preprocessing/map_labels.py` — **done**
+
+_19 adapters, all 3 classes and all 8 sub-types populated. Two decisions made while writing it, both documented in the file:_
+- _**Persona/override precedence.** Of jackhhao's 666 jailbreak rows, 500 match persona wording and 149 match override wording, but **125 match both** and **142 match neither** — the plan's ~530/~143 split assumed no overlap. Rule adopted: persona wins ties (the assumed identity is the payload); rows matching neither go to Policy Evasion rather than being dropped._
+- _**Short-text filter.** Rows under 10 characters are dropped as unusable: alpaca `'6 + 3 = ?'` (1), deepset `'ukraina'` (1), TrustAIRLab `'hi'`/`'Hello'` (75), WildJailbreak (26). This is why a few counts sit just under the inventory figures._
 
 One adapter per source. Every adapter returns the same shape: `{text, label_3class, subtype, source}`.
 
@@ -290,7 +298,9 @@ INDIRECT = "Indirect Injection"
 
 ---
 
-#### 🟡 Task 17 — Unit-test the adapters
+#### ✅ Task 17 — Unit-test the adapters — **done**
+
+_51 fast tests + 6 slow tests, all passing. Split by speed so the suite actually gets run: `pytest tests/ -v` covers the small sources in ~3.5 min; `pytest tests/ -v --slow` adds the four large-file adapters (WildJailbreak, llmail ×2, BIPIA). Beyond the four required checks, the suite also pins the two thinnest sub-types — Role Override and System Prompt Overwrite — so a mapping regression can't silently wipe them out, and asserts llmail still filters its `'Unclear'` rows._
 
 **17.1** Create `tests/test_map_labels.py`. Write one test asserting every adapter returns dicts with exactly the four required keys.
 **TEST:** `pytest tests/test_map_labels.py -v`
