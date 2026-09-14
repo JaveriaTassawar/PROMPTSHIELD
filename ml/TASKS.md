@@ -653,7 +653,25 @@ _Satisfied by the Task 24 run: `python training/tokenize_check.py` completes wit
 
 ---
 
-#### 🔵 Task 26 — `training/dataset.py` — **next up**
+#### ✅ Task 26 — `training/dataset.py` — **done**
+
+_`PromptDataset` wraps the split parquet files. All three sub-steps pass, and the plan's literal copy-paste commands work as written._
+
+| Sub-step | Result |
+|---|---|
+| 26.1 single item | `input_ids` (512,), `attention_mask` (512,), `labels` int |
+| 26.2 label type | `2` → `'Indirect Injection'`, a real `int` |
+| 26.3 DataLoader | batch of 4, `(4, 512)`, `torch.int64`, no shape errors |
+
+_**Two decisions that prevent silent damage:**_
+
+_**Label order is pinned, not derived.** `LABEL2ID = {Safe: 0, Direct Jailbreak: 1, Indirect Injection: 2}` is a constant. Deriving it from `sorted(unique())` or pandas' iteration order would let train and test assign different integers to the same class — the model would score near-random and nothing in the output would say why. `ID2LABEL` is exported so Task 30 reports class names rather than bare integers._
+
+_**Tokenization is lazy.** `train.parquet` is 453,935 rows; tokenizing all of it in `__init__` would stall for minutes and hold a large array in RAM before training starts, which matters on a free Colab instance._
+
+_`MAX_LENGTH` is imported from `tokenize_check` rather than redefined, so the 512 from Task 24 cannot drift from the evidence behind it._
+
+_**Fixed while testing:** the tokenizer emits `token_type_ids`, which DistilBERT's `forward()` does not accept — it is a single-segment model. The Trainer drops unexpected keys silently, so this would have passed unnoticed here and then raised a `TypeError` in a hand-rolled `model(**batch)` loop in Task 27 or the inference wrapper in Task 35. Now dropped in `__getitem__`._
 
 **26.1** Write a PyTorch `Dataset` class wrapping `clean.parquet`, with the 3-class label as the target.
 **TEST:** `python -c "from training.dataset import PromptDataset; d=PromptDataset('data/processed/train.parquet'); print(len(d)); print(d[0])"`
@@ -669,7 +687,7 @@ _Satisfied by the Task 24 run: `python training/tokenize_check.py` completes wit
 
 ---
 
-#### 🟡 Task 27 — `training/train.py`
+#### 🔵 Task 27 — `training/train.py` — **next up**
 
 **27.1** Write `build_model()` — DistilBERT with `num_labels=3`.
 **TEST:** `python -c "from training.train import build_model; m=build_model(); print(m.config.num_labels)"`
