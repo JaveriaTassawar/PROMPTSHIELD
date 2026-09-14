@@ -201,12 +201,14 @@ _**Full detail — dataset inventory, schema quirks, label mapping, Colab setup,
 
 **Dataset Prep**
 ✅ Task 13 — Create `ml/data/raw/`, `ml/data/processed/`, `ml/preprocessing/`, `ml/training/`, `ml/inference/` + `requirements.txt` — **done** (`7bdc06c`)
-✅ Task 14 — `download_datasets.py` — copy/fetch all sources into `ml/data/raw/`; re-runnable, prints a summary — **done** (`e33dfb2`, verified against 20 sources; **`SOURCES` is now 23** — see the addendum in [`../ml/TASKS.md`](../ml/TASKS.md) for the three added later and what they require before Task 20)
+✅ Task 14 — `download_datasets.py` — copy/fetch all sources into `ml/data/raw/`; re-runnable, prints a summary — **done** (`e33dfb2`; later re-run for 3 added sources → **23 files**, see the addendum in [`../ml/TASKS.md`](../ml/TASKS.md))
 ✅ Task 15 — `inspect_sources.py` — row count, columns, 2 examples per source; confirm each matches the inventory — **done** (`d347f46`)
-✅ Task 16 — `map_labels.py` — one adapter per source → `{text, label_3class, subtype, source}`, using the 3-class / 8-sub-type taxonomy — **done** (19 adapters, all 8 sub-types populated)
-✅ Task 17 — Unit-test the adapters — cover all 3 classes and all 8 sub-types — **done** (51 fast + 6 slow tests, all passing)
-✅ Task 18 — `prepare_dataset.py` — run adapters, concatenate, **deduplicate on normalised text**, tag `is_synthetic`, write `clean.parquet` — **done** (518,528 rows, 201.5 MB; dedup exposed heavy within-source duplication — Role Override fell 158 → 51)
-✅ Task 19 — Run it, confirm counts; old CSV should collapse ~2,000,000 → ~1,041; flag sub-types under 200 examples — **done** (added `verify_dataset.py`; old CSV 2,000,000 → 1,040 at 1,923× duplication; Role Override flagged at 51)
+✅ Task 16 — `map_labels.py` — one adapter per source → `{text, label_3class, subtype, source}`, using the 3-class / 8-sub-type taxonomy — **done** (**22 adapters** after the second pass, all 8 sub-types populated)
+✅ Task 17 — Unit-test the adapters — cover all 3 classes and all 8 sub-types — **done** (**62 fast + 6 slow tests**, all passing)
+✅ Task 18 — `prepare_dataset.py` — run adapters, concatenate, **deduplicate on normalised text**, tag `is_synthetic`, write `clean.parquet` — **done** (**547,063 rows, 204.2 MB**)
+✅ Task 19 — Run it, confirm counts; old CSV should collapse ~2,000,000 → ~1,041; flag sub-types under 200 examples — **done** (`verify_dataset.py`; old CSV 2,000,000 → 1,040 at 1,923× duplication; **Role Override flagged at 109**)
+
+> _Tasks 14–19 were each run twice: once against the original 20 sources, then again after three more were added. The figures above are the **current** ones. The first-pass numbers and what changed between them are recorded in the addendum in [`../ml/TASKS.md`](../ml/TASKS.md)._
 🔵 Task 20 — `split_dataset.py` — stratified split; **test set = real-world rows only**; no text overlap across splits — **next up**
 🟡 Task 21 — Run, confirm balance and zero cross-split overlap; down-sample Safe or set class weights
 🟡 Task 22 — `make_sample.py` — stratified 1,000-row sample for git, **NSFW rows excluded by hand**

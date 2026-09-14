@@ -123,8 +123,8 @@ def test_fast_adapters_cover_seven_subtypes(fast_rows: list[dict]) -> None:
 
 
 def test_thin_subtypes_are_still_present(fast_rows: list[dict]) -> None:
-    """Role Override (158) and System Prompt Overwrite (279) are the smallest
-    sub-types, so a mapping regression would wipe them out silently."""
+    """Role Override and System Prompt Overwrite are the smallest sub-types,
+    so a mapping regression would wipe them out silently."""
     counts: dict[str, int] = {}
     for row in fast_rows:
         if row["subtype"]:
@@ -136,6 +136,37 @@ def test_thin_subtypes_are_still_present(fast_rows: list[dict]) -> None:
         f"System Prompt Overwrite collapsed to "
         f"{counts.get('System Prompt Overwrite', 0)}"
     )
+
+
+def test_neuralchemy_maps_its_attack_families() -> None:
+    """neuralchemy is the only source with fine-grained family labels, and it
+    exists specifically to feed the thin sub-types. If its category mapping
+    regressed to generic Policy Evasion, the sub-types it was added for would
+    quietly go back to being starved."""
+    from preprocessing.map_labels import adapt_neuralchemy
+
+    rows = adapt_neuralchemy()
+    subtypes = {r["subtype"] for r in rows if r["subtype"]}
+
+    for expected in (
+        "Persona Hijacking",
+        "System Prompt Overwrite",
+        "Role Override",
+        "Multi-Turn Manipulation",
+    ):
+        assert expected in subtypes, (
+            f"neuralchemy stopped producing {expected!r} -- check NEURALCHEMY_MAP"
+        )
+
+
+def test_neuralchemy_trusts_label_over_family_name() -> None:
+    """Where the binary label says benign, the row is Safe regardless of what
+    its family is called -- `control` rows are labelled 0 despite the name."""
+    from preprocessing.map_labels import adapt_neuralchemy
+
+    for row in adapt_neuralchemy():
+        if row["label_3class"] == SAFE:
+            assert row["subtype"] is None
 
 
 # --- 17.4 no empty text ---------------------------------------------------

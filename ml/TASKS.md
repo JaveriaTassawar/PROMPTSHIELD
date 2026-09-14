@@ -225,17 +225,32 @@ _Verified: all 20 files parse; every pinned row count matches — BIPIA 70,000, 
 > | `slabs_prompt_injection.csv` | 11,089 | 506 override-worded injections, 6,303 benign |
 > | `safeguard_prompt_injection.parquet` | 8,236 | generic binary injection/benign |
 >
-> **State right now:** downloaded into `../dataset/` and registered in `download_datasets.py` (`SOURCES` is now **23**). They are **not** in `data/raw/`, have **no adapters**, and are **not** in `clean.parquet`.
+> ### ✅ Second pass complete — all six tasks re-run
 >
-> **What this means for the completed tasks — Task 20 must not start until these are done:**
+> | Task | Re-run result |
+> |---|---|
+> | **14** | 3 copied, 20 skipped → **23 files** in `data/raw/` |
+> | **15** | all 23 parse; the three new counts pinned and matching (14,036 / 11,089 / 8,236) |
+> | **16** | 3 adapters written → **`ALL_ADAPTERS` is 22**. `neuralchemy`'s 31 attack families mapped onto the 8 sub-types via `NEURALCHEMY_MAP` |
+> | **17** | **62 fast + 6 slow tests pass**, including 2 new ones guarding the neuralchemy mapping |
+> | **18** | rebuilt → **547,063 rows**, 204.2 MB (12,025 duplicates removed, 2.2%) |
+> | **19** | re-audited, all structural checks pass |
 >
-> - **Task 14** — re-run `download_datasets.py` to copy the three into `data/raw/` (expect 23 files, not 20)
-> - **Task 15** — re-run `inspect_sources.py`; add the three to `EXPECTED_ROWS` so a truncated download is still caught
-> - **Task 16** — write three adapters. `neuralchemy` is the valuable one: map its `category` values onto the 8 sub-types rather than treating it as generic binary
-> - **Task 17** — extend the tests to cover the new adapters
-> - **Tasks 18–19** — re-run to rebuild and re-audit `clean.parquet`
+> **What actually improved:**
 >
-> Doing this **before** Task 20 matters: Task 20 splits the data, so new rows must be present beforehand or the split has to be redone.
+> | | Before | After |
+> |---|---|---|
+> | Total rows | 518,528 | **547,063** |
+> | System Prompt Overwrite | 251 | **1,381** (5.5×) |
+> | Role Override | 51 | **109** (2.1×) |
+> | Real-world Direct Jailbreak | 8,113 (5.7%) | **20,792 (13.5%)** |
+> | Real-world rows overall | 256,062 | **284,599** |
+>
+> **Two mapping rules in `NEURALCHEMY_MAP`, both deliberate:**
+> - Families are mapped on **what the text does**, verified against real examples — `agent_manipulation` ("YOU HAVE TEMPORARY ADMIN ACCESS") → Role Override, not Policy Evasion.
+> - **The binary label wins over the family name** where they disagree: `control` rows are labelled benign despite the ambiguous name, so they become Safe.
+>
+> **Still thin:** Role Override at 109 is the only sub-type under 200, and Direct Jailbreak's real-world pool is still 13.5% because WildJailbreak (synthetic) dominates the class. Both remain `MODEL_CARD.md` entries — improved, not solved.
 >
 > _Rejected: `gabrielchua/system-prompt-leakage` (283,353 rows). Its `content` field holds system prompts and model responses, not user-typed attacks — training on it would teach the wrong side of the conversation._
 
@@ -264,6 +279,8 @@ Prove every file is what section 2 says it is, *before* writing any mapping logi
 ---
 
 #### ✅ Task 16 — `preprocessing/map_labels.py` — **done**
+
+> _**Superseded:** this records the first pass (19 adapters). Three more were added later — `ALL_ADAPTERS` is now **22**. See the addendum above._
 
 _19 adapters, all 3 classes and all 8 sub-types populated. Two decisions made while writing it, both documented in the file:_
 - _**Persona/override precedence.** Of jackhhao's 666 jailbreak rows, 500 match persona wording and 149 match override wording, but **125 match both** and **142 match neither** — the plan's ~530/~143 split assumed no overlap. Rule adopted: persona wins ties (the assumed identity is the payload); rows matching neither go to Policy Evasion rather than being dropped._
@@ -343,6 +360,8 @@ _51 fast tests + 6 slow tests, all passing. Split by speed so the suite actually
 
 #### ✅ Task 18 — `preprocessing/prepare_dataset.py` — **done**
 
+> _**Superseded:** first-pass figures. After the second pass `clean.parquet` is **547,063 rows / 204.2 MB**. The findings below about within-source duplication still stand — they are why the thin sub-types needed topping up._
+
 _525,745 combined → **518,528 kept** after dedup (7,217 duplicates, 1.4%). `clean.parquet` is 201.5 MB._
 
 _**Dedup revealed heavy internal duplication inside individual sources** — Task 16's counts were inflated by within-file repeats that only surfaced once deduplication ran:_
@@ -385,6 +404,8 @@ _⚠️ **Open risk for Task 20:** only 8,113 of 141,248 Direct Jailbreak rows a
 #### ✅ Task 19 — Run it and confirm the counts — **done**
 
 _Added `preprocessing/verify_dataset.py` — a separate auditor that reads `clean.parquet` back rather than trusting the builder's own summary. All five checks pass, exit 0._
+
+> _**Superseded:** the table below is the first-pass audit. Re-run after the second pass: **547,063 rows / 204.2 MB**, **Role Override 109**, and Direct Jailbreak's real-world pool up from 5.7% to **13.5%**. The 1,923× old-CSV duplication finding is unchanged._
 
 | Check | Result |
 |---|---|
