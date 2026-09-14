@@ -437,7 +437,33 @@ python preprocessing/prepare_dataset.py
 
 ---
 
-#### 🔵 Task 20 — `preprocessing/split_dataset.py` — **next up**
+#### ✅ Task 20 — `preprocessing/split_dataset.py` — **done**
+
+_Four files written to `data/processed/`: **train 453,935** · **val 50,438** · **test 42,690** · **synthetic_test 42,690**. Both hard rules verified, exit 0._
+
+| Rule | Result |
+|---|---|
+| **1 — test is real-world only** | all 42,690 rows `is_synthetic == False` |
+| **2 — no text across splits** | train∩val, train∩test, val∩test all **0** |
+
+_**Order matters and is deliberate:** the test set is carved from the real-world pool *first*, then train/val are taken from what remains. Splitting the whole frame and filtering afterwards would let stratification hand real-world rows to train and leave the test set short._
+
+_**The test set's class balance differs from train's on purpose.** Train is 39.7/29.9/30.4; test is 29.4% Safe / 7.3% Direct / 63.2% Indirect — because it mirrors the **real-world pool**, where Indirect has 180,009 rows and Direct only 20,792. The test set reflects the data that actually exists, not an idealised balance._
+
+_Test-set sub-type coverage — **Role Override gets just 18 rows**, so its per-sub-type score in Task 31 will be statistically weak and must be reported with that caveat:_
+
+| Sub-type | Test rows |
+|---|---|
+| Web Content Injection | 21,922 |
+| Document Embedding | 4,984 |
+| Policy Evasion | 1,741 |
+| Multi-Turn Manipulation | 968 |
+| Persona Hijacking | 218 |
+| System Prompt Overwrite | 174 |
+| Tool Output Injection | 95 |
+| **Role Override** | **18** ⚠️ |
+
+_`synthetic_test.parquet` is sampled from rows already in train — deliberately **not** held out. Its only job in Task 31 is to show how much higher a synthetic score looks, which is the point being made._
 
 **20.1** Write `split(df)` — stratified train/val/test on `label_3class`.
 **TEST:** print each split's shape
@@ -457,7 +483,7 @@ python preprocessing/prepare_dataset.py
 
 ---
 
-#### 🟡 Task 21 — Run and verify the splits
+#### 🔵 Task 21 — Run and verify the splits — **next up**
 
 **21.1** Run it.
 ```bash
