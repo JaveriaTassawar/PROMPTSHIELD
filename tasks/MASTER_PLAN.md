@@ -205,8 +205,8 @@ _**Full detail — dataset inventory, schema quirks, label mapping, Colab setup,
 ✅ Task 15 — `inspect_sources.py` — row count, columns, 2 examples per source; confirm each matches the inventory — **done** (`d347f46`)
 ✅ Task 16 — `map_labels.py` — one adapter per source → `{text, label_3class, subtype, source}`, using the 3-class / 8-sub-type taxonomy — **done** (19 adapters, all 8 sub-types populated)
 ✅ Task 17 — Unit-test the adapters — cover all 3 classes and all 8 sub-types — **done** (51 fast + 6 slow tests, all passing)
-🔵 Task 18 — `prepare_dataset.py` — run adapters, concatenate, **deduplicate on normalised text**, tag `is_synthetic`, write `clean.parquet` — **next up**
-🟡 Task 19 — Run it, confirm counts; old CSV should collapse ~2,000,000 → ~1,041; flag sub-types under 200 examples
+✅ Task 18 — `prepare_dataset.py` — run adapters, concatenate, **deduplicate on normalised text**, tag `is_synthetic`, write `clean.parquet` — **done** (518,528 rows, 201.5 MB; dedup exposed heavy within-source duplication — Role Override fell 158 → 51)
+🔵 Task 19 — Run it, confirm counts; old CSV should collapse ~2,000,000 → ~1,041; flag sub-types under 200 examples — **next up**
 🟡 Task 20 — `split_dataset.py` — stratified split; **test set = real-world rows only**; no text overlap across splits
 🟡 Task 21 — Run, confirm balance and zero cross-split overlap; down-sample Safe or set class weights
 🟡 Task 22 — `make_sample.py` — stratified 1,000-row sample for git, **NSFW rows excluded by hand**

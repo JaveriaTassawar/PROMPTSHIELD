@@ -317,7 +317,24 @@ _51 fast tests + 6 slow tests, all passing. Split by speed so the suite actually
 
 ---
 
-#### 🟡 Task 18 — `preprocessing/prepare_dataset.py`
+#### ✅ Task 18 — `preprocessing/prepare_dataset.py` — **done**
+
+_525,745 combined → **518,528 kept** after dedup (7,217 duplicates, 1.4%). `clean.parquet` is 201.5 MB._
+
+_**Dedup revealed heavy internal duplication inside individual sources** — Task 16's counts were inflated by within-file repeats that only surfaced once deduplication ran:_
+
+| Source | Rows returned | Unique | Lost |
+|---|---|---|---|
+| `injecagent_dh` | 510 | **30** | 94% |
+| `injecagent_ds` | 544 | **32** | 94% |
+| `orq_redteam` | 158 | **51** | 68% |
+| `nemotron` | 1,272 | 594 | 53% |
+
+_Knock-on effect on the thin sub-types: **Role Override 158 → 51**, **System Prompt Overwrite 279 → 251** (68 real-world), **Tool Output Injection 2,326 → 656**._
+
+_**Real-world rows win dedup ties over synthetic ones**, so a synthetic copy can never displace its real-world twin and block it from Task 20's held-out test set._
+
+_⚠️ **Open risk for Task 20:** only 8,113 of 141,248 Direct Jailbreak rows are real-world (94% of the class is WildJailbreak, which is synthetic). Role Override has 51 real-world rows and System Prompt Overwrite 68 — barely enough to populate a held-out test set. Decide before Task 20 whether to accept this, source more data, or carve the test set differently._
 
 **18.1** Write `run_all_adapters()` — call every adapter, return one combined list.
 **TEST:** `python -c "from preprocessing.prepare_dataset import run_all_adapters; print(len(run_all_adapters()))"`
