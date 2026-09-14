@@ -239,7 +239,11 @@ Prove every file is what section 2 says it is, *before* writing any mapping logi
 
 ---
 
-#### 🔵 Task 16 — `preprocessing/map_labels.py` — **next up**
+#### ✅ Task 16 — `preprocessing/map_labels.py` — **done**
+
+_19 adapters, all 3 classes and all 8 sub-types populated. Two decisions made while writing it, both documented in the file:_
+- _**Persona/override precedence.** Of jackhhao's 666 jailbreak rows, 500 match persona wording and 149 match override wording, but **125 match both** and **142 match neither** — the plan's ~530/~143 split assumed no overlap. Rule adopted: persona wins ties (the assumed identity is the payload); rows matching neither go to Policy Evasion rather than being dropped._
+- _**Short-text filter.** Rows under 10 characters are dropped as unusable: alpaca `'6 + 3 = ?'` (1), deepset `'ukraina'` (1), TrustAIRLab `'hi'`/`'Hello'` (75), WildJailbreak (26). This is why a few counts sit just under the inventory figures._
 
 One adapter per source. Every adapter returns the same shape: `{text, label_3class, subtype, source}`.
 

@@ -203,8 +203,8 @@ _**Full detail — dataset inventory, schema quirks, label mapping, Colab setup,
 ✅ Task 13 — Create `ml/data/raw/`, `ml/data/processed/`, `ml/preprocessing/`, `ml/training/`, `ml/inference/` + `requirements.txt` — **done** (`7bdc06c`)
 ✅ Task 14 — `download_datasets.py` — copy/fetch all 20 sources into `ml/data/raw/`; re-runnable, prints a summary — **done** (`e33dfb2`)
 ✅ Task 15 — `inspect_sources.py` — row count, columns, 2 examples per source; confirm each matches the inventory — **done** (`d347f46`)
-🔵 Task 16 — `map_labels.py` — one adapter per source → `{text, label_3class, subtype, source}`, using the 3-class / 8-sub-type taxonomy — **next up**
-🟡 Task 17 — Unit-test the adapters — cover all 3 classes and all 8 sub-types
+✅ Task 16 — `map_labels.py` — one adapter per source → `{text, label_3class, subtype, source}`, using the 3-class / 8-sub-type taxonomy — **done** (19 adapters, all 8 sub-types populated)
+🔵 Task 17 — Unit-test the adapters — cover all 3 classes and all 8 sub-types — **next up**
 🟡 Task 18 — `prepare_dataset.py` — run adapters, concatenate, **deduplicate on normalised text**, tag `is_synthetic`, write `clean.parquet`
 🟡 Task 19 — Run it, confirm counts; old CSV should collapse ~2,000,000 → ~1,041; flag sub-types under 200 examples
 🟡 Task 20 — `split_dataset.py` — stratified split; **test set = real-world rows only**; no text overlap across splits
