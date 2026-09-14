@@ -38,6 +38,13 @@ ml/data/*.tsv
 ml/models/*.bin
 ml/models/*.safetensors
 ml/models/checkpoints/
+# Trainer writes checkpoint shards (hundreds of MB each) to its output_dir.
+# train.py defaults to ml/models/checkpoints/, but catch the common strays too
+# so a smoke-test run can never push weights.
+ml/training/checkpoints/
+ml/training/runs/
+**/checkpoint-*/
+*.safetensors
 
 # Hugging Face token — never commit
 .huggingface/
