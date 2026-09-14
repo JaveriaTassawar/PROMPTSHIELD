@@ -215,6 +215,45 @@ ls data/raw/ | wc -l
 
 _Verified: all 20 files parse; every pinned row count matches — BIPIA 70,000, llmail 160,741 + 37,303, WildJailbreak 261,559, Attack_600 600, old CSV 2,000,000._
 
+> ### ⚠️ Addendum — three sources added after Tasks 14–19 were completed
+>
+> The ✅ records above describe what was verified **at the time**, against 20 sources. Three more were added afterwards to strengthen the thinnest sub-types (Role Override 51, System Prompt Overwrite 251):
+>
+> | File | Rows | Why |
+> |---|---|---|
+> | `neuralchemy_prompt_injection.parquet` | 14,036 | `category` column labels **31 attack families** — `system_manipulation` (98), `persona_replacement` (84), `instruction_override` (72), `system_extraction` (40), `prompt_extraction` (47), `multi_turn` + `crescendo` (70) |
+> | `slabs_prompt_injection.csv` | 11,089 | 506 override-worded injections, 6,303 benign |
+> | `safeguard_prompt_injection.parquet` | 8,236 | generic binary injection/benign |
+>
+> ### ✅ Second pass complete — all six tasks re-run
+>
+> | Task | Re-run result |
+> |---|---|
+> | **14** | 3 copied, 20 skipped → **23 files** in `data/raw/` |
+> | **15** | all 23 parse; the three new counts pinned and matching (14,036 / 11,089 / 8,236) |
+> | **16** | 3 adapters written → **`ALL_ADAPTERS` is 22**. `neuralchemy`'s 31 attack families mapped onto the 8 sub-types via `NEURALCHEMY_MAP` |
+> | **17** | **62 fast + 6 slow tests pass**, including 2 new ones guarding the neuralchemy mapping |
+> | **18** | rebuilt → **547,063 rows**, 204.2 MB (12,025 duplicates removed, 2.2%) |
+> | **19** | re-audited, all structural checks pass |
+>
+> **What actually improved:**
+>
+> | | Before | After |
+> |---|---|---|
+> | Total rows | 518,528 | **547,063** |
+> | System Prompt Overwrite | 251 | **1,381** (5.5×) |
+> | Role Override | 51 | **109** (2.1×) |
+> | Real-world Direct Jailbreak | 8,113 (5.7%) | **20,792 (13.5%)** |
+> | Real-world rows overall | 256,062 | **284,599** |
+>
+> **Two mapping rules in `NEURALCHEMY_MAP`, both deliberate:**
+> - Families are mapped on **what the text does**, verified against real examples — `agent_manipulation` ("YOU HAVE TEMPORARY ADMIN ACCESS") → Role Override, not Policy Evasion.
+> - **The binary label wins over the family name** where they disagree: `control` rows are labelled benign despite the ambiguous name, so they become Safe.
+>
+> **Still thin:** Role Override at 109 is the only sub-type under 200, and Direct Jailbreak's real-world pool is still 13.5% because WildJailbreak (synthetic) dominates the class. Both remain `MODEL_CARD.md` entries — improved, not solved.
+>
+> _Rejected: `gabrielchua/system-prompt-leakage` (283,353 rows). Its `content` field holds system prompts and model responses, not user-typed attacks — training on it would teach the wrong side of the conversation._
+
 Prove every file is what section 2 says it is, *before* writing any mapping logic.
 
 **15.1** Write `describe(path)` — prints row count, columns/keys, and 2 example records. Handle the four formats: `.json`, `.jsonl`, `.csv`, `.parquet`, `.tsv`.
@@ -240,6 +279,8 @@ Prove every file is what section 2 says it is, *before* writing any mapping logi
 ---
 
 #### ✅ Task 16 — `preprocessing/map_labels.py` — **done**
+
+> _**Superseded:** this records the first pass (19 adapters). Three more were added later — `ALL_ADAPTERS` is now **22**. See the addendum above._
 
 _19 adapters, all 3 classes and all 8 sub-types populated. Two decisions made while writing it, both documented in the file:_
 - _**Persona/override precedence.** Of jackhhao's 666 jailbreak rows, 500 match persona wording and 149 match override wording, but **125 match both** and **142 match neither** — the plan's ~530/~143 split assumed no overlap. Rule adopted: persona wins ties (the assumed identity is the payload); rows matching neither go to Policy Evasion rather than being dropped._
@@ -317,7 +358,26 @@ _51 fast tests + 6 slow tests, all passing. Split by speed so the suite actually
 
 ---
 
-#### 🟡 Task 18 — `preprocessing/prepare_dataset.py`
+#### ✅ Task 18 — `preprocessing/prepare_dataset.py` — **done**
+
+> _**Superseded:** first-pass figures. After the second pass `clean.parquet` is **547,063 rows / 204.2 MB**. The findings below about within-source duplication still stand — they are why the thin sub-types needed topping up._
+
+_525,745 combined → **518,528 kept** after dedup (7,217 duplicates, 1.4%). `clean.parquet` is 201.5 MB._
+
+_**Dedup revealed heavy internal duplication inside individual sources** — Task 16's counts were inflated by within-file repeats that only surfaced once deduplication ran:_
+
+| Source | Rows returned | Unique | Lost |
+|---|---|---|---|
+| `injecagent_dh` | 510 | **30** | 94% |
+| `injecagent_ds` | 544 | **32** | 94% |
+| `orq_redteam` | 158 | **51** | 68% |
+| `nemotron` | 1,272 | 594 | 53% |
+
+_Knock-on effect on the thin sub-types: **Role Override 158 → 51**, **System Prompt Overwrite 279 → 251** (68 real-world), **Tool Output Injection 2,326 → 656**._
+
+_**Real-world rows win dedup ties over synthetic ones**, so a synthetic copy can never displace its real-world twin and block it from Task 20's held-out test set._
+
+_⚠️ **Open risk for Task 20:** only 8,113 of 141,248 Direct Jailbreak rows are real-world (94% of the class is WildJailbreak, which is synthetic). Role Override has 51 real-world rows and System Prompt Overwrite 68 — barely enough to populate a held-out test set. Decide before Task 20 whether to accept this, source more data, or carve the test set differently._
 
 **18.1** Write `run_all_adapters()` — call every adapter, return one combined list.
 **TEST:** `python -c "from preprocessing.prepare_dataset import run_all_adapters; print(len(run_all_adapters()))"`
@@ -341,7 +401,21 @@ _51 fast tests + 6 slow tests, all passing. Split by speed so the suite actually
 
 ---
 
-#### 🟡 Task 19 — Run it and confirm the counts
+#### ✅ Task 19 — Run it and confirm the counts — **done**
+
+_Added `preprocessing/verify_dataset.py` — a separate auditor that reads `clean.parquet` back rather than trusting the builder's own summary. All five checks pass, exit 0._
+
+> _**Superseded:** the table below is the first-pass audit. Re-run after the second pass: **547,063 rows / 204.2 MB**, **Role Override 109**, and Direct Jailbreak's real-world pool up from 5.7% to **13.5%**. The 1,923× old-CSV duplication finding is unchanged._
+
+| Check | Result |
+|---|---|
+| 19.1 File | 518,528 rows × 5 cols, 201.5 MB |
+| 19.2 Old CSV dedup | 2,000,000 → **1,040** unique (**1,923× duplication**) |
+| 19.3 Classes | all 3 present — Safe 197,263 · Indirect 180,017 · Direct 141,248 |
+| 19.4 Sub-types | all 8 present |
+| 19.5 Thin | **Role Override — 51 rows** (the only sub-type under 200) |
+
+_⚠️ **Carried into Task 20:** real-world rows per class are Indirect **100%**, Safe **34.5%**, but Direct Jailbreak only **5.7%** (8,113 of 141,248) — because 94% of that class is synthetic WildJailbreak. The real-world-only test set will be thin for Direct Jailbreak, and Role Override (51) / System Prompt Overwrite (68) can barely populate it._
 
 **19.1** Run the full pipeline.
 ```bash
@@ -363,7 +437,33 @@ python preprocessing/prepare_dataset.py
 
 ---
 
-#### 🟡 Task 20 — `preprocessing/split_dataset.py`
+#### ✅ Task 20 — `preprocessing/split_dataset.py` — **done**
+
+_Four files written to `data/processed/`: **train 453,935** · **val 50,438** · **test 42,690** · **synthetic_test 42,690**. Both hard rules verified, exit 0._
+
+| Rule | Result |
+|---|---|
+| **1 — test is real-world only** | all 42,690 rows `is_synthetic == False` |
+| **2 — no text across splits** | train∩val, train∩test, val∩test all **0** |
+
+_**Order matters and is deliberate:** the test set is carved from the real-world pool *first*, then train/val are taken from what remains. Splitting the whole frame and filtering afterwards would let stratification hand real-world rows to train and leave the test set short._
+
+_**The test set's class balance differs from train's on purpose.** Train is 39.7/29.9/30.4; test is 29.4% Safe / 7.3% Direct / 63.2% Indirect — because it mirrors the **real-world pool**, where Indirect has 180,009 rows and Direct only 20,792. The test set reflects the data that actually exists, not an idealised balance._
+
+_Test-set sub-type coverage — **Role Override gets just 18 rows**, so its per-sub-type score in Task 31 will be statistically weak and must be reported with that caveat:_
+
+| Sub-type | Test rows |
+|---|---|
+| Web Content Injection | 21,922 |
+| Document Embedding | 4,984 |
+| Policy Evasion | 1,741 |
+| Multi-Turn Manipulation | 968 |
+| Persona Hijacking | 218 |
+| System Prompt Overwrite | 174 |
+| Tool Output Injection | 95 |
+| **Role Override** | **18** ⚠️ |
+
+_`synthetic_test.parquet` is sampled from rows already in train — deliberately **not** held out. Its only job in Task 31 is to show how much higher a synthetic score looks, which is the point being made._
 
 **20.1** Write `split(df)` — stratified train/val/test on `label_3class`.
 **TEST:** print each split's shape
@@ -383,7 +483,7 @@ python preprocessing/prepare_dataset.py
 
 ---
 
-#### 🟡 Task 21 — Run and verify the splits
+#### 🔵 Task 21 — Run and verify the splits — **next up**
 
 **21.1** Run it.
 ```bash

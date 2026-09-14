@@ -340,6 +340,105 @@ def adapt_tomgibbs_harmful() -> list[dict]:
     return out
 
 
+# --- added after the first pass, to strengthen the thinnest sub-types ----
+#
+# neuralchemy labels each row with one of 31 attack families, which is far
+# more specific than the binary labels the other supplementary sources carry.
+# Mapping those families onto our 8 sub-types is the whole reason this source
+# was added: Role Override and System Prompt Overwrite were down to 51 and 251
+# rows after deduplication.
+#
+# Families are mapped on what the text actually does, checked against real
+# examples, not on the name alone. Anything unmapped falls through to Policy
+# Evasion rather than being discarded.
+NEURALCHEMY_MAP = {
+    # assume a new identity -> Persona Hijacking
+    "persona_replacement": (DIRECT, PERSONA_HIJACKING),
+    # override or extract the system prompt -> System Prompt Overwrite
+    "instruction_override": (DIRECT, SYSTEM_PROMPT_OVERWRITE),
+    "system_manipulation": (DIRECT, SYSTEM_PROMPT_OVERWRITE),
+    "system_extraction": (DIRECT, SYSTEM_PROMPT_OVERWRITE),
+    "prompt_extraction": (DIRECT, SYSTEM_PROMPT_OVERWRITE),
+    "prompt_leak": (DIRECT, SYSTEM_PROMPT_OVERWRITE),
+    "training_extraction": (DIRECT, SYSTEM_PROMPT_OVERWRITE),
+    "model_fingerprinting": (DIRECT, SYSTEM_PROMPT_OVERWRITE),
+    # claim privilege / drive the agent -> Role Override
+    "agent_manipulation": (DIRECT, ROLE_OVERRIDE),
+    # attacks spread across turns -> Multi-Turn Manipulation
+    "multi_turn": (DIRECT, MULTI_TURN),
+    "crescendo": (DIRECT, MULTI_TURN),
+    "many_shot": (DIRECT, MULTI_TURN),
+    # malicious text hidden in content the model reads -> Indirect
+    "indirect_injection": (INDIRECT, DOCUMENT_EMBEDDING),
+    "rag_poisoning": (INDIRECT, DOCUMENT_EMBEDDING),
+    # benign
+    "benign": (SAFE, None),
+    "edge_case": (SAFE, None),
+    "control": (SAFE, None),
+}
+
+
+def adapt_neuralchemy() -> list[dict]:
+    """31 attack families mapped onto the 8 sub-types.
+
+    `control` rows are labelled 0 (benign) in the file despite the ambiguous
+    name, so they are treated as Safe -- the label is trusted over the family
+    name where the two disagree.
+    """
+    import pandas as pd
+
+    frame = pd.read_parquet(RAW_DIR / "neuralchemy_prompt_injection.parquet")
+    out: list[dict] = []
+    for text, category, label in zip(
+        frame["text"], frame["category"], frame["label"]
+    ):
+        if not _usable(text):
+            continue
+        mapped = NEURALCHEMY_MAP.get(str(category))
+        if mapped is None:
+            # Unmapped family: trust the binary label rather than guessing.
+            mapped = (
+                (SAFE, None) if int(label) == 0 else (DIRECT, POLICY_EVASION)
+            )
+        cls, subtype = mapped
+        # Where family and label disagree, the label wins.
+        if int(label) == 0 and cls != SAFE:
+            cls, subtype = SAFE, None
+        out.append(record(text, cls, subtype, "neuralchemy"))
+    return out
+
+
+def adapt_slabs() -> list[dict]:
+    """Binary text/label (0 = benign, 1 = injection)."""
+    out = []
+    with open(RAW_DIR / "slabs_prompt_injection.csv", encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            text = row.get("text")
+            if not _usable(text):
+                continue
+            if str(row.get("label")) == "0":
+                out.append(record(text, SAFE, None, "slabs"))
+            else:
+                out.append(record(text, DIRECT, classify_jailbreak(text), "slabs"))
+    return out
+
+
+def adapt_safeguard() -> list[dict]:
+    """Binary text/label (0 = benign, 1 = injection)."""
+    import pandas as pd
+
+    frame = pd.read_parquet(RAW_DIR / "safeguard_prompt_injection.parquet")
+    out = []
+    for text, label in zip(frame["text"], frame["label"]):
+        if not _usable(text):
+            continue
+        if int(label) == 0:
+            out.append(record(text, SAFE, None, "safeguard"))
+        else:
+            out.append(record(text, DIRECT, classify_jailbreak(text), "safeguard"))
+    return out
+
+
 # Old synthetic CSV: raw label -> (class, subtype).
 #
 # Only `indirect_injection` maps to Indirect, and it goes to Document
@@ -405,6 +504,9 @@ ALL_ADAPTERS = [
     adapt_deepset,
     adapt_tomgibbs_benign,
     adapt_tomgibbs_harmful,
+    adapt_neuralchemy,
+    adapt_slabs,
+    adapt_safeguard,
     adapt_old_csv,
 ]
 
