@@ -2,6 +2,7 @@ pandas
 pyarrow
 transformers
 torch
+accelerate
 scikit-learn
 datasets
 pytest

@@ -222,8 +222,8 @@ _**Full detail — dataset inventory, schema quirks, label mapping, Colab setup,
 ✅ Task 24 — `tokenize_check.py` — tokenizer sanity check; decide `max_length` here — **done** (**MAX_LENGTH = 512**, DistilBERT's ceiling; truncates 15.3% of rows vs 43.1% at the default 128 — Multi-Turn Manipulation's median row exceeds 512, logged for `MODEL_CARD.md`)
 ✅ Task 25 — Run it — **done** (exit 0; `MAX_LENGTH` confirmed importable for Tasks 26/27)
 ✅ Task 26 — `training/dataset.py` — PyTorch Dataset class, 3-class label as the primary target — **done** (lazy tokenization, label order pinned as a constant, `token_type_ids` dropped for DistilBERT compatibility)
-🔵 Task 27 — `training/train.py` — model + TrainingArguments; runnable as a script **and** from the Colab notebook — **next up**
-🟡 Task 28 — Smoke-test on 100 rows, 1 epoch, locally on CPU before spending GPU time
+✅ Task 27 — `training/train.py` — model + TrainingArguments; runnable as a script **and** from the Colab notebook — **done** (all 4 sub-steps pass; class weights bound **by name** not file order — the naive `.values()` read would have up-weighted Safe; `fp16` derived from CUDA so one file serves laptop and T4; eval on `val` never `test`; `accelerate` was missing and is now pinned. **Construction checks only — no training step has run yet, so Task 28 is not optional**)
+🔵 Task 28 — Smoke-test on 100 rows, 1 epoch, locally on CPU before spending GPU time — **next up**
 🟡 Task 29 — Full training run **on Colab's free T4** (mount Drive first) + hyperparameter tuning pass
 🟡 Task 30 — `training/evaluate.py` — accuracy/F1/confusion matrix, **per-class and per-sub-type**, real-world and synthetic reported separately
 🟡 Task 31 — Run, save `metrics.json`. **Headline = real-world test score**; synthetic is comparison only

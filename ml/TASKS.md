@@ -687,7 +687,25 @@ _**Fixed while testing:** the tokenizer emits `token_type_ids`, which DistilBERT
 
 ---
 
-#### 🔵 Task 27 — `training/train.py` — **next up**
+#### ✅ Task 27 — `training/train.py` — **done**
+
+_All four sub-steps pass. `train.py` runs as `python training/train.py --smoke-test` and imports into Colab as `from training.train import run` — import takes 0.02s and starts nothing._
+
+_**Caveat, stated plainly:** these are construction checks. No training step has executed yet, so the weighted `compute_loss` override has not actually been called. That is exactly what Task 28 is for — do not skip it._
+
+_**Four decisions worth knowing:**_
+
+_**Class weights bind by name, never by file order.** `class_weights.json` is keyed `Direct Jailbreak, Indirect Injection, Safe` — a different order from `LABEL2ID` (`Safe, Direct Jailbreak, Indirect Injection`). Reading `.values()` straight into a tensor would bind **Safe → 1.1148**, up-weighting the majority class and down-weighting a minority one. The only symptom would be quietly worse recall on the classes that matter most. `build_weights()` indexes through `LABEL2ID` and raises on a missing class. Verified with a negative control: the naive implementation is detected as wrong._
+
+_**`fp16` is derived from `torch.cuda.is_available()`**, not hardcoded — `fp16=True` raises on this CPU-only laptop and `False` wastes half the T4's throughput. One file, both environments, no edit in between._
+
+_**Evaluation runs on `val`, never `test`.** `test.parquet` is the real-world-only held-out set behind the Task 31 headline number. Using it here would let `load_best_model_at_end` select checkpoints against it, and the headline would stop being honest._
+
+_**API drift caught by probing the installed library** rather than trusting recall: transformers 5.17 uses `eval_strategy` (`evaluation_strategy` removed), has no `warmup_ratio` (so warmup is in steps), takes `processing_class` not `tokenizer`, and `compute_loss` now receives `num_items_in_batch` — a subclass written to the old 3-arg signature imports fine and only fails once a step runs, i.e. partway into a paid GPU session._
+
+_**Fixed while testing:** `accelerate` was not installed — `Trainer` cannot construct without it. Installed and pinned into `requirements.txt`, so a fresh clone or Colab runtime gets it. Also added gitignore rules for `checkpoint-*/` and `*.safetensors`; each checkpoint shard is ~265 MB and `save_total_limit=2` still leaves several on disk._
+
+_Warmup scales down to 0 for a limited run — the default 500 steps exceeds a 100-row smoke test's total steps, which would pin the LR near zero and produce a flat loss that looks like a bug._
 
 **27.1** Write `build_model()` — DistilBERT with `num_labels=3`.
 **TEST:** `python -c "from training.train import build_model; m=build_model(); print(m.config.num_labels)"`
@@ -706,7 +724,7 @@ _**Fixed while testing:** the tokenizer emits `token_type_ids`, which DistilBERT
 
 ---
 
-#### 🟡 Task 28 — Smoke-test locally
+#### 🔵 Task 28 — Smoke-test locally — **next up**
 
 **28.1** Run training on just 100 rows for 1 epoch, on CPU.
 **EXPECT:** completes in a few minutes without crashing
