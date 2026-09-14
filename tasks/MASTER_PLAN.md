@@ -201,7 +201,7 @@ _**Full detail — dataset inventory, schema quirks, label mapping, Colab setup,
 
 **Dataset Prep**
 ✅ Task 13 — Create `ml/data/raw/`, `ml/data/processed/`, `ml/preprocessing/`, `ml/training/`, `ml/inference/` + `requirements.txt` — **done** (`7bdc06c`)
-✅ Task 14 — `download_datasets.py` — copy/fetch all 20 sources into `ml/data/raw/`; re-runnable, prints a summary — **done** (`e33dfb2`)
+✅ Task 14 — `download_datasets.py` — copy/fetch all sources into `ml/data/raw/`; re-runnable, prints a summary — **done** (`e33dfb2`, verified against 20 sources; **`SOURCES` is now 23** — see the addendum in [`../ml/TASKS.md`](../ml/TASKS.md) for the three added later and what they require before Task 20)
 ✅ Task 15 — `inspect_sources.py` — row count, columns, 2 examples per source; confirm each matches the inventory — **done** (`d347f46`)
 ✅ Task 16 — `map_labels.py` — one adapter per source → `{text, label_3class, subtype, source}`, using the 3-class / 8-sub-type taxonomy — **done** (19 adapters, all 8 sub-types populated)
 ✅ Task 17 — Unit-test the adapters — cover all 3 classes and all 8 sub-types — **done** (51 fast + 6 slow tests, all passing)

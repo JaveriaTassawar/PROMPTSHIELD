@@ -42,6 +42,11 @@ EXPECTED_ROWS: dict[str, int] = {
     "jackhhao_jailbreak_classification.csv": 1_998,
     "rubend18_chatgpt_jailbreak_prompts.csv": 79,
     "deepset_prompt_injections.parquet": 546,
+    # Added after the first pass to strengthen Role Override and System
+    # Prompt Overwrite. Counts verified on download.
+    "neuralchemy_prompt_injection.parquet": 14_036,
+    "slabs_prompt_injection.csv": 11_089,
+    "safeguard_prompt_injection.parquet": 8_236,
 }
 
 csv.field_size_limit(10**9)  # some prompts are very long single fields

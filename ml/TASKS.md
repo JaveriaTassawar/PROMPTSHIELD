@@ -24,8 +24,6 @@ The **primary classifier predicts the 3 top-level classes only**. The 8 sub-type
 
 Everything lives in `C:\Users\DELL\Desktop\FYP\dataset\` (outside the repo, gitignored — 1.6 GB total). Row counts below were measured directly, not estimated.
 
-> **Team-facing summary:** [`DATASETS.md`](DATASETS.md) explains every source in plain language — what it is, which class it teaches, where the data is weak, and how to rebuild the folder. Point Faiqa and Rana there rather than at this section.
-
 ### 2a. Safe (Benign)
 
 | File | Rows | Notes |
@@ -216,6 +214,30 @@ ls data/raw/ | wc -l
 #### ✅ Task 15 — `preprocessing/inspect_sources.py` — **done** (commit `d347f46`)
 
 _Verified: all 20 files parse; every pinned row count matches — BIPIA 70,000, llmail 160,741 + 37,303, WildJailbreak 261,559, Attack_600 600, old CSV 2,000,000._
+
+> ### ⚠️ Addendum — three sources added after Tasks 14–19 were completed
+>
+> The ✅ records above describe what was verified **at the time**, against 20 sources. Three more were added afterwards to strengthen the thinnest sub-types (Role Override 51, System Prompt Overwrite 251):
+>
+> | File | Rows | Why |
+> |---|---|---|
+> | `neuralchemy_prompt_injection.parquet` | 14,036 | `category` column labels **31 attack families** — `system_manipulation` (98), `persona_replacement` (84), `instruction_override` (72), `system_extraction` (40), `prompt_extraction` (47), `multi_turn` + `crescendo` (70) |
+> | `slabs_prompt_injection.csv` | 11,089 | 506 override-worded injections, 6,303 benign |
+> | `safeguard_prompt_injection.parquet` | 8,236 | generic binary injection/benign |
+>
+> **State right now:** downloaded into `../dataset/` and registered in `download_datasets.py` (`SOURCES` is now **23**). They are **not** in `data/raw/`, have **no adapters**, and are **not** in `clean.parquet`.
+>
+> **What this means for the completed tasks — Task 20 must not start until these are done:**
+>
+> - **Task 14** — re-run `download_datasets.py` to copy the three into `data/raw/` (expect 23 files, not 20)
+> - **Task 15** — re-run `inspect_sources.py`; add the three to `EXPECTED_ROWS` so a truncated download is still caught
+> - **Task 16** — write three adapters. `neuralchemy` is the valuable one: map its `category` values onto the 8 sub-types rather than treating it as generic binary
+> - **Task 17** — extend the tests to cover the new adapters
+> - **Tasks 18–19** — re-run to rebuild and re-audit `clean.parquet`
+>
+> Doing this **before** Task 20 matters: Task 20 splits the data, so new rows must be present beforehand or the split has to be redone.
+>
+> _Rejected: `gabrielchua/system-prompt-leakage` (283,353 rows). Its `content` field holds system prompts and model responses, not user-typed attacks — training on it would teach the wrong side of the conversation._
 
 Prove every file is what section 2 says it is, *before* writing any mapping logic.
 
