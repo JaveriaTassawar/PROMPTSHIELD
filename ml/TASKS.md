@@ -483,7 +483,30 @@ _`synthetic_test.parquet` is sampled from rows already in train — deliberately
 
 ---
 
-#### 🔵 Task 21 — Run and verify the splits — **next up**
+#### ✅ Task 21 — Run and verify the splits — **done**
+
+_Re-verified from the saved files: test set `is_synthetic` is `[False]` only, and train∩val / train∩test / val∩test are all **0**._
+
+**21.4 class balance per split**
+
+| Split | Rows | Safe | Direct Jailbreak | Indirect Injection |
+|---|---|---|---|---|
+| train | 453,935 | 39.7% | 29.9% | 30.4% |
+| val | 50,438 | 39.7% | 29.9% | 30.4% |
+| test | 42,690 | 29.4% | 7.3% | 63.2% |
+| synthetic_test | 42,690 | 49.3% | 50.7% | 0.0% |
+
+_**Decision: weight, don't down-sample.** The training split's largest/smallest ratio is **1.33×** — mild. Down-sampling Safe to match would discard ~45,000 usable rows to fix something the model can absorb. Weighting keeps every row and costs nothing._
+
+_Added `preprocessing/class_weights.py`, which **persists** the weights to `data/processed/class_weights.json` — 21.4 says save them for Task 27, and a printout would not survive:_
+
+| Class | Weight |
+|---|---|
+| Direct Jailbreak | 1.1148 |
+| Indirect Injection | 1.0981 |
+| Safe | 0.8387 |
+
+_⚠️ **These are 3-class weights only.** The 8 sub-types are imbalanced ~1,300× (Web Content Injection 145,354 vs Role Override 109). Weighting cannot manufacture signal from 109 examples — that stays a `MODEL_CARD.md` limitation rather than something a multiplier hides._
 
 **21.1** Run it.
 ```bash
@@ -502,7 +525,31 @@ python preprocessing/split_dataset.py
 
 ---
 
-#### 🟡 Task 22 — `preprocessing/make_sample.py`
+#### ✅ Task 22 — `preprocessing/make_sample.py` — **done**
+
+_**997 rows** written to `data/sample_1000.csv` (375 KB). All 3 classes and all 8 sub-types present._
+
+_**The filter runs before sampling, not after.** Filtering afterwards would punch holes in the quotas — a sub-type could lose most of its picks and end up barely represented._
+
+| Group | In dataset | Clean | Taken | Dropped |
+|---|---|---|---|---|
+| Safe | 213,037 | 207,289 | 333 | 2.7% |
+| Policy Evasion | 144,262 | 139,500 | 83 | 3.3% |
+| Web Content Injection | 145,354 | 143,146 | 83 | 1.5% |
+| Document Embedding | 34,089 | 33,231 | 83 | 2.5% |
+| Multi-Turn Manipulation | 6,477 | 6,410 | 83 | 1.0% |
+| **Persona Hijacking** | 1,698 | 1,345 | 83 | **20.8%** |
+| System Prompt Overwrite | 1,381 | 1,368 | 83 | 0.9% |
+| Tool Output Injection | 656 | 656 | 83 | 0.0% |
+| Role Override | 109 | 109 | 83 | 0.0% |
+
+_**14,009 rows dataset-wide failed the content filter.** Persona Hijacking's 20.8% was checked rather than assumed — the triggering terms are `sexual` (384), `sex` (289), `nsfw` (200), `fuck` (170), `porn` (80), `rape` (49). Those are genuine DAN-style prompts soliciting explicit output, not the blocklist over-matching. Makes sense: persona-replacement attacks are the ones most often used to chase explicit content._
+
+_**Quotas are floored, not purely proportional.** Role Override has 109 rows in the entire dataset; a proportional quota would give it 1–2 rows and effectively hide it. Each sub-type gets 83 so the taxonomy is legible from the sample alone._
+
+_Rows are truncated to 600 chars with a `...[truncated]` marker so the CSV opens cleanly in a spreadsheet and nobody mistakes a cut row for a full prompt._
+
+_⚠️ **22.2 still needs your eyes.** This is a machine pre-filter. The rows I read are clean, but you should page through the file before the viva — a blocklist cannot catch everything._
 
 **22.1** Write a stratified 1,000-row sampler covering all 3 classes and all 8 sub-types.
 **TEST:** print counts per class and per sub-type in the sample
@@ -517,7 +564,17 @@ python preprocessing/split_dataset.py
 
 ---
 
-#### 🟡 Task 23 — Commit the sample
+#### ✅ Task 23 — Commit the sample — **done**
+
+_`data/sample_1000.csv` committed (997 rows, 374 KB) — the only training data in the repository._
+
+_**23.1 verified three ways**, because `git check-ignore` had already misled me twice: `git status --ignored` marks all five parquet files and `data/raw/` as `!!`; exit codes are 0 for the big files and 1 for the sample; and a dry run over the whole `ml/` tree stages exactly one file._
+
+> ⚠️ **Gotcha worth remembering:** `git add -n <explicitly-named-ignored-file>` reports what *would* happen if forced, so it prints `add '...'` and looks like a leak when there is none. Use `git status --ignored`, check-ignore **exit codes**, or a **directory-level** dry run instead.
+
+_**23.2 deviates from the literal command.** The plan says `git checkout -b ml/dataset-prep`, but that branch already exists and was merged in PR #3. Work continued on `ml/verify-splits`, branched off `main` after PR #4 — the correct equivalent._
+
+_Content accepted as-is after review. The 111 rows my secondary scan flagged are leetspeak obfuscation and fictional emails from the Microsoft llmail and InjecAgent research datasets. The obfuscation **is** the attack technique the classifier must handle, so masking it would hide the subject matter._
 
 **23.1** Confirm git will ignore the big files but keep the sample.
 ```bash

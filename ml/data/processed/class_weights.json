@@ -1,0 +1,16 @@
+{
+  "label_field": "label_3class",
+  "weights": {
+    "Direct Jailbreak": 1.114823628803898,
+    "Indirect Injection": 1.0981483631859572,
+    "Safe": 0.8386634888962791
+  },
+  "counts": {
+    "Safe": 180420,
+    "Indirect Injection": 137788,
+    "Direct Jailbreak": 135727
+  },
+  "imbalance_ratio": 1.3293,
+  "downsampling_applied": false,
+  "note": "3-class weights only. The 8 sub-types are far more imbalanced (Web Content Injection 145,354 vs Role Override 109) and are a documented limitation, not something weighting can fix."
+}
