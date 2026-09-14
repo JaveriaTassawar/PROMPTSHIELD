@@ -219,10 +219,10 @@ _**Full detail — dataset inventory, schema quirks, label mapping, Colab setup,
 **🔵 Backend DB Models (Task 38) and Frontend Scaffold & Auth (Task 67) can be worked on in parallel with all of the above — see Dependency Map.**
 
 **Training & Evaluation** — _needs Task 18/20 output_
-🔴 Task 24 — `tokenize_check.py` — tokenizer sanity check; decide `max_length` here — **needs Task 18 merged**
-🟡 Task 25 — Run it
-🟡 Task 26 — `training/dataset.py` — PyTorch Dataset class, 3-class label as the primary target
-🟡 Task 27 — `training/train.py` — model + TrainingArguments; runnable as a script **and** from the Colab notebook
+✅ Task 24 — `tokenize_check.py` — tokenizer sanity check; decide `max_length` here — **done** (**MAX_LENGTH = 512**, DistilBERT's ceiling; truncates 15.3% of rows vs 43.1% at the default 128 — Multi-Turn Manipulation's median row exceeds 512, logged for `MODEL_CARD.md`)
+✅ Task 25 — Run it — **done** (exit 0; `MAX_LENGTH` confirmed importable for Tasks 26/27)
+✅ Task 26 — `training/dataset.py` — PyTorch Dataset class, 3-class label as the primary target — **done** (lazy tokenization, label order pinned as a constant, `token_type_ids` dropped for DistilBERT compatibility)
+🔵 Task 27 — `training/train.py` — model + TrainingArguments; runnable as a script **and** from the Colab notebook — **next up**
 🟡 Task 28 — Smoke-test on 100 rows, 1 epoch, locally on CPU before spending GPU time
 🟡 Task 29 — Full training run **on Colab's free T4** (mount Drive first) + hyperparameter tuning pass
 🟡 Task 30 — `training/evaluate.py` — accuracy/F1/confusion matrix, **per-class and per-sub-type**, real-world and synthetic reported separately

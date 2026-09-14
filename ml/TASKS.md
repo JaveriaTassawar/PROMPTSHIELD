@@ -596,7 +596,39 @@ git push -u origin ml/dataset-prep
 
 ### Training & Evaluation
 
-#### 🔴 Task 24 — `training/tokenize_check.py` — **needs Task 18 merged**
+#### ✅ Task 24 — `training/tokenize_check.py` — **done**
+
+_**Decision: `MAX_LENGTH = 512`**, importable by Tasks 26/27 via `from training.tokenize_check import MAX_LENGTH`._
+
+_Measured over a 2,809-row **stratified** sample — uniform sampling would swamp the rare-but-long multi-turn rows with short Safe ones and understate the spread:_
+
+| | Tokens |
+|---|---|
+| p50 | 94 |
+| p75 | 273 |
+| p90 | 624 |
+| p95 | 747 |
+| p99 | 1,483 |
+| max | 3,923 |
+
+| Setting | Rows truncated |
+|---|---|
+| 128 _(transformers default)_ | **43.1%** |
+| 256 | 26.2% |
+| **512** | **15.3%** ← chosen |
+
+_**512 is DistilBERT's architectural ceiling, not a tuning choice** — the model cannot read more. The real question was whether to go *below* it to save GPU time, and the answer is no: the default 128 would truncate nearly three times as many rows._
+
+_⚠️ **What this costs — for `MODEL_CARD.md`.** Four sub-types are still truncated at the maximum setting:_
+
+| Sub-type | Median | Over 512 |
+|---|---|---|
+| **Multi-Turn Manipulation** | **547** | **55.0%** |
+| Persona Hijacking | 267 | 34.0% |
+| Web Content Injection | 225 | 26.3% |
+| Document Embedding | 312 | 23.0% |
+
+_Multi-Turn's **median** row exceeds 512, so most of those prompts lose their final turns — the model classifies from the opening of the conversation. That is a genuine limitation of DistilBERT for multi-turn detection; a longer-context model would fix it, which is out of scope for v1._
 
 **24.1** Load the DistilBERT tokenizer.
 ```bash
@@ -612,14 +644,34 @@ python -c "from transformers import AutoTokenizer; t=AutoTokenizer.from_pretrain
 
 ---
 
-#### 🟡 Task 25 — Run the tokenizer check
+#### ✅ Task 25 — Run the tokenizer check — **done**
+
+_Satisfied by the Task 24 run: `python training/tokenize_check.py` completes with exit 0 and prints the full distribution, the truncation table, and the per-sub-type breakdown. `MAX_LENGTH` was confirmed importable — `from training.tokenize_check import MAX_LENGTH` returns 512 — which is what Tasks 26 and 27 depend on._
 
 **25.1** `python training/tokenize_check.py`
 **EXPECT:** prints the distribution and your chosen `max_length` with no error
 
 ---
 
-#### 🟡 Task 26 — `training/dataset.py`
+#### ✅ Task 26 — `training/dataset.py` — **done**
+
+_`PromptDataset` wraps the split parquet files. All three sub-steps pass, and the plan's literal copy-paste commands work as written._
+
+| Sub-step | Result |
+|---|---|
+| 26.1 single item | `input_ids` (512,), `attention_mask` (512,), `labels` int |
+| 26.2 label type | `2` → `'Indirect Injection'`, a real `int` |
+| 26.3 DataLoader | batch of 4, `(4, 512)`, `torch.int64`, no shape errors |
+
+_**Two decisions that prevent silent damage:**_
+
+_**Label order is pinned, not derived.** `LABEL2ID = {Safe: 0, Direct Jailbreak: 1, Indirect Injection: 2}` is a constant. Deriving it from `sorted(unique())` or pandas' iteration order would let train and test assign different integers to the same class — the model would score near-random and nothing in the output would say why. `ID2LABEL` is exported so Task 30 reports class names rather than bare integers._
+
+_**Tokenization is lazy.** `train.parquet` is 453,935 rows; tokenizing all of it in `__init__` would stall for minutes and hold a large array in RAM before training starts, which matters on a free Colab instance._
+
+_`MAX_LENGTH` is imported from `tokenize_check` rather than redefined, so the 512 from Task 24 cannot drift from the evidence behind it._
+
+_**Fixed while testing:** the tokenizer emits `token_type_ids`, which DistilBERT's `forward()` does not accept — it is a single-segment model. The Trainer drops unexpected keys silently, so this would have passed unnoticed here and then raised a `TypeError` in a hand-rolled `model(**batch)` loop in Task 27 or the inference wrapper in Task 35. Now dropped in `__getitem__`._
 
 **26.1** Write a PyTorch `Dataset` class wrapping `clean.parquet`, with the 3-class label as the target.
 **TEST:** `python -c "from training.dataset import PromptDataset; d=PromptDataset('data/processed/train.parquet'); print(len(d)); print(d[0])"`
@@ -635,7 +687,7 @@ python -c "from transformers import AutoTokenizer; t=AutoTokenizer.from_pretrain
 
 ---
 
-#### 🟡 Task 27 — `training/train.py`
+#### 🔵 Task 27 — `training/train.py` — **next up**
 
 **27.1** Write `build_model()` — DistilBERT with `num_labels=3`.
 **TEST:** `python -c "from training.train import build_model; m=build_model(); print(m.config.num_labels)"`
