@@ -24,6 +24,8 @@ The **primary classifier predicts the 3 top-level classes only**. The 8 sub-type
 
 Everything lives in `C:\Users\DELL\Desktop\FYP\dataset\` (outside the repo, gitignored — 1.6 GB total). Row counts below were measured directly, not estimated.
 
+> **Team-facing summary:** [`DATASETS.md`](DATASETS.md) explains every source in plain language — what it is, which class it teaches, where the data is weak, and how to rebuild the folder. Point Faiqa and Rana there rather than at this section.
+
 ### 2a. Safe (Benign)
 
 | File | Rows | Notes |

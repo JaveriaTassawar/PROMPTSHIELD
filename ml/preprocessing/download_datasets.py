@@ -84,6 +84,22 @@ SOURCES: dict[str, str] = {
         f"{HF}/deepset/prompt-injections/resolve/main/"
         "data/train-00000-of-00001-9564e8b05b4757ab.parquet"
     ),
+    # Added to strengthen the thinnest sub-types. neuralchemy carries a
+    # `category` column with 31 attack families -- including
+    # persona_replacement, instruction_override, system_manipulation and
+    # system_extraction -- which map directly onto Role Override and System
+    # Prompt Overwrite, the two sub-types the other sources barely cover.
+    "neuralchemy_prompt_injection.parquet": (
+        f"{HF}/neuralchemy/Prompt-injection-dataset/resolve/main/"
+        "full/train-00000-of-00001.parquet"
+    ),
+    "slabs_prompt_injection.csv": (
+        f"{HF}/S-Labs/prompt-injection-dataset/resolve/main/data/train.csv"
+    ),
+    "safeguard_prompt_injection.parquet": (
+        f"{HF}/xTRam1/safe-guard-prompt-injection/resolve/main/"
+        "data/train-00000-of-00001.parquet"
+    ),
     # --- Indirect Injection: Document Embedding ---
     "dataset_for_huggingface.jsonl": (  # gated: MAlmasabi/...BIPIA-GPT
         f"{HF}/MAlmasabi/Indirect-Prompt-Injection-BIPIA-GPT/resolve/main/"
