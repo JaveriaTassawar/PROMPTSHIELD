@@ -564,7 +564,17 @@ _⚠️ **22.2 still needs your eyes.** This is a machine pre-filter. The rows I
 
 ---
 
-#### 🔵 Task 23 — Commit the sample — **next up**
+#### ✅ Task 23 — Commit the sample — **done**
+
+_`data/sample_1000.csv` committed (997 rows, 374 KB) — the only training data in the repository._
+
+_**23.1 verified three ways**, because `git check-ignore` had already misled me twice: `git status --ignored` marks all five parquet files and `data/raw/` as `!!`; exit codes are 0 for the big files and 1 for the sample; and a dry run over the whole `ml/` tree stages exactly one file._
+
+> ⚠️ **Gotcha worth remembering:** `git add -n <explicitly-named-ignored-file>` reports what *would* happen if forced, so it prints `add '...'` and looks like a leak when there is none. Use `git status --ignored`, check-ignore **exit codes**, or a **directory-level** dry run instead.
+
+_**23.2 deviates from the literal command.** The plan says `git checkout -b ml/dataset-prep`, but that branch already exists and was merged in PR #3. Work continued on `ml/verify-splits`, branched off `main` after PR #4 — the correct equivalent._
+
+_Content accepted as-is after review. The 111 rows my secondary scan flagged are leetspeak obfuscation and fictional emails from the Microsoft llmail and InjecAgent research datasets. The obfuscation **is** the attack technique the classifier must handle, so masking it would hide the subject matter._
 
 **23.1** Confirm git will ignore the big files but keep the sample.
 ```bash
