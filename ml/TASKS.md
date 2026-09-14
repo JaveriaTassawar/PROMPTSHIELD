@@ -724,7 +724,21 @@ _Warmup scales down to 0 for a limited run — the default 500 steps exceeds a 1
 
 ---
 
-#### 🔵 Task 28 — Smoke-test locally — **next up**
+#### ✅ Task 28 — Smoke-test locally — **done**
+
+_Ran `python training/train.py --smoke-test` on CPU: 100 train rows, 25 val, 13 steps, **2m 04s**. Completed without crashing and saved a reloadable checkpoint._
+
+_**Losses, all finite:** train `1.095 → 1.078`, eval `1.055`, final train loss `1.074`. Checked programmatically across the whole `log_history` for `nan`/`inf`, not eyeballed — **none**._
+
+_Those numbers sit just under `ln(3) ≈ 1.0986`, which is exactly the loss of a model guessing uniformly across 3 classes. **That is the correct result for this run and not a warning sign** — 100 rows for 1 epoch cannot teach the model anything. Task 28 tests the plumbing, not the learning. Real movement comes in Task 29._
+
+_**The thing this task existed to catch.** Task 27's checks were static, so the weighted loss had never actually been called. Now proven: `type(trainer).compute_loss is not Trainer.compute_loss` → `True`, the override returns a finite value, and weighted vs unweighted loss on the same batch **differ** (`1.079671` vs `1.082560`) — so the class weights are genuinely reaching the optimiser rather than being silently ignored. Also confirmed `inputs["labels"]` is restored after the `pop`, which the Trainer needs for metric computation._
+
+_**Checkpoint verified end-to-end:** 255.43 MB `model.safetensors`, reloads via `from_pretrained`, `id2label` intact, `classifier.out_features == 3`. Tokenizer saved alongside it, so Task 33's Drive upload is self-contained._
+
+_**Worth knowing for Task 35:** transformers 5.17 **no longer writes `num_labels` into `config.json`** — it derives it from `len(id2label)` at load time. `AutoConfig.num_labels` still returns `3` correctly. Any code that reads `config.json` as raw JSON and expects a `num_labels` key will `KeyError`; use `AutoConfig.from_pretrained()` instead._
+
+_Ran with `--output-dir` pointed at temp, so no 255 MB checkpoint ever entered the repo — `git status` clean throughout._
 
 **28.1** Run training on just 100 rows for 1 epoch, on CPU.
 **EXPECT:** completes in a few minutes without crashing
@@ -736,7 +750,7 @@ _Warmup scales down to 0 for a limited run — the default 500 steps exceeds a 1
 
 ---
 
-#### 🟡 Task 29 — Full training run on Colab
+#### 🔵 Task 29 — Full training run on Colab — **next up**
 
 **29.1** Open a Colab notebook, set Runtime → Change runtime type → **T4 GPU**.
 **TEST:** `!nvidia-smi` → **EXPECT:** a T4 listed

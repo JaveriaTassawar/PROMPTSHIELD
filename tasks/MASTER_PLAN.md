@@ -223,8 +223,8 @@ _**Full detail — dataset inventory, schema quirks, label mapping, Colab setup,
 ✅ Task 25 — Run it — **done** (exit 0; `MAX_LENGTH` confirmed importable for Tasks 26/27)
 ✅ Task 26 — `training/dataset.py` — PyTorch Dataset class, 3-class label as the primary target — **done** (lazy tokenization, label order pinned as a constant, `token_type_ids` dropped for DistilBERT compatibility)
 ✅ Task 27 — `training/train.py` — model + TrainingArguments; runnable as a script **and** from the Colab notebook — **done** (all 4 sub-steps pass; class weights bound **by name** not file order — the naive `.values()` read would have up-weighted Safe; `fp16` derived from CUDA so one file serves laptop and T4; eval on `val` never `test`; `accelerate` was missing and is now pinned. **Construction checks only — no training step has run yet, so Task 28 is not optional**)
-🔵 Task 28 — Smoke-test on 100 rows, 1 epoch, locally on CPU before spending GPU time — **next up**
-🟡 Task 29 — Full training run **on Colab's free T4** (mount Drive first) + hyperparameter tuning pass
+✅ Task 28 — Smoke-test on 100 rows, 1 epoch, locally on CPU before spending GPU time — **done** (13 steps in 2m 04s; losses `1.095 → 1.078`, eval `1.055`, **no `nan`/`inf`** anywhere in `log_history`. Loss sitting near `ln(3)≈1.099` is correct for 100 rows — this tests plumbing, not learning. **Proved the weighted loss actually executes**: weighted vs unweighted differ on the same batch, so class weights reach the optimiser. Checkpoint reloads with `out_features==3`; nothing entered the repo)
+🔵 Task 29 — Full training run **on Colab's free T4** (mount Drive first) + hyperparameter tuning pass — **next up**
 🟡 Task 30 — `training/evaluate.py` — accuracy/F1/confusion matrix, **per-class and per-sub-type**, real-world and synthetic reported separately
 🟡 Task 31 — Run, save `metrics.json`. **Headline = real-world test score**; synthetic is comparison only
 🟡 Task 32 — `MODEL_CARD.md` — taxonomy, source inventory, dedup findings, both scores, weak sub-types, fallback wording if used
