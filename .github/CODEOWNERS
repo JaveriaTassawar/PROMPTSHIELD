@@ -1,0 +1,15 @@
+# Code owners for PROMPTSHIELD (FYP S26CS038)
+#
+# Every pull request touching any file requires review and approval from
+# Jawaria before it can be merged. This works together with the protect-main
+# ruleset: "Require review from Code Owners" points at this file.
+#
+# Without this file that setting enforces nothing, and any collaborator with
+# Write access could approve another's PR -- so Rana could approve Shahzaib's
+# work and merge it without Jawaria ever seeing it.
+#
+# The last matching pattern wins, so the catch-all below stays at the top
+# only if no narrower rule follows it.
+
+# All files, everywhere in the repository.
+*  @JaveriaTassawar
