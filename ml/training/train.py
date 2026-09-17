@@ -264,7 +264,8 @@ class _Subset:
 
 def run(output_dir=DEFAULT_OUTPUT_DIR, epochs: float = DEFAULT_EPOCHS,
         train_batch: int = DEFAULT_TRAIN_BATCH, learning_rate: float = DEFAULT_LR,
-        limit: int | None = None, use_class_weights: bool = True):
+        limit: int | None = None, use_class_weights: bool = True,
+        resume_from_checkpoint: str | None = None):
     """Full training run. Importable from Colab; nothing runs on import.
 
     Returns the Trainer so the notebook can reach .state.log_history and
@@ -311,7 +312,7 @@ def run(output_dir=DEFAULT_OUTPUT_DIR, epochs: float = DEFAULT_EPOCHS,
     )
 
     print("\nstarting training\n")
-    trainer.train()
+    trainer.train(resume_from_checkpoint=resume_from_checkpoint)
 
     final_dir = Path(output_dir) / "final"
     trainer.save_model(str(final_dir))
@@ -341,6 +342,10 @@ def parse_args(argv=None):
         "--no-class-weights", action="store_true",
         help="train with unweighted loss",
     )
+    parser.add_argument(
+        "--resume-from-checkpoint", default=None,
+        help="resume training from a saved Hugging Face Trainer checkpoint",
+    )
     return parser.parse_args(argv)
 
 
@@ -362,6 +367,7 @@ def main(argv=None) -> int:
         learning_rate=parsed.learning_rate,
         limit=limit,
         use_class_weights=not parsed.no_class_weights,
+        resume_from_checkpoint=parsed.resume_from_checkpoint,
     )
     return 0
 
