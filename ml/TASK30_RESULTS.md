@@ -496,50 +496,189 @@ This result applies specifically to the 21,922 Web Content Injection examples pr
 
 ---
 
-# 11. Validation vs Test Comparison
+# 11. Synthetic Test Evaluation
 
-| Metric | Validation | Real-World Test |
-|---|---:|---:|
-| Accuracy | 98.54% | **99.11%** |
-| Precision | 98.55% | **99.13%** |
-| Recall | 98.54% | **99.11%** |
-| F1 | 98.54% | **99.11%** |
+The selected checkpoint was also evaluated on:
 
-The real-world held-out test results were slightly higher than the validation results.
+`synthetic_test.parquet`
 
-This does not mean that the model improved after validation; the checkpoint was unchanged.
+This evaluation was performed to compare model performance on the synthetic test data with the held-out real-world test data.
 
-The difference reflects performance on two different data splits with different example compositions.
+Total synthetic examples:
+
+**42,690**
+
+The synthetic dataset was not used for model selection or additional model tuning.
 
 ---
 
-# 12. Key Findings
+## 11.1 Synthetic Evaluation Command
+
+```bash
+python training/evaluate.py \
+  --model-path "<path-to-run_01/checkpoint-28371>" \
+  --data-path "data/processed/synthetic_test.parquet" \
+  --batch-size 32 \
+  --output "task30_synthetic_metrics.json"
+```
+
+---
+
+## 11.2 Overall Synthetic Test Metrics
+
+| Metric | Result |
+|---|---:|
+| Accuracy | **98.91%** |
+| Weighted Precision | **98.92%** |
+| Weighted Recall | **98.91%** |
+| Weighted F1 | **98.91%** |
+
+The model correctly classified:
+
+**42,225 / 42,690 synthetic examples**
+
+and misclassified:
+
+**465 / 42,690 synthetic examples**
+
+This corresponds to approximately **98.91% synthetic test accuracy**.
+
+---
+
+## 11.3 Per-Class Synthetic Test Metrics
+
+| Class | Precision | Recall | F1 | Support |
+|---|---:|---:|---:|---:|
+| Safe | 99.40% | 98.38% | 98.89% | 21,040 |
+| Direct Jailbreak | 98.44% | 99.43% | 98.93% | 21,641 |
+| Indirect Injection | 100.00% | 100.00% | 100.00% | 9 |
+
+The synthetic test set contains only **9 Indirect Injection examples**.
+
+Therefore, the 100% precision, recall, and F1 reported for Indirect Injection are based on a very small sample and should **not** be interpreted as evidence of perfect generalization for this class.
+
+---
+
+## 11.4 Synthetic Confusion Matrix
+
+Rows represent actual classes and columns represent predicted classes.
+
+| Actual \ Predicted | Safe | Direct Jailbreak | Indirect Injection |
+|---|---:|---:|---:|
+| Safe | 20,699 | 341 | 0 |
+| Direct Jailbreak | 124 | 21,517 | 0 |
+| Indirect Injection | 0 | 0 | 9 |
+
+The largest synthetic-set confusion also occurs between Safe and Direct Jailbreak.
+
+---
+
+## 11.5 Synthetic Per-Subtype Performance
+
+| Subtype | Correct | Total | Errors | Accuracy |
+|---|---:|---:|---:|---:|
+| Document Embedding | 9 | 9 | 0 | 100.00% |
+| Persona Hijacking | 14 | 14 | 0 | 100.00% |
+| Policy Evasion | 21,479 | 21,603 | 124 | 99.43% |
+| System Prompt Overwrite | 24 | 24 | 0 | 100.00% |
+
+Several synthetic subtype groups contain very few examples.
+
+For example:
+
+- Document Embedding contains only 9 examples.
+- Persona Hijacking contains only 14 examples.
+- System Prompt Overwrite contains only 24 examples.
+
+Therefore, their 100% subtype accuracies should always be interpreted together with their sample counts.
+
+---
+
+# 12. Real-World vs Synthetic Test Comparison
+
+| Metric | Real-World Test | Synthetic Test |
+|---|---:|---:|
+| Accuracy | **99.11%** | 98.91% |
+| Weighted Precision | **99.13%** | 98.92% |
+| Weighted Recall | **99.11%** | 98.91% |
+| Weighted F1 | **99.11%** | 98.91% |
+
+The selected checkpoint performed strongly on both datasets.
+
+In this experiment, real-world test accuracy was approximately **0.20 percentage points higher** than synthetic test accuracy.
+
+This result is important because the synthetic dataset did **not** produce a higher score than the real-world dataset in this experiment.
+
+The two test sets also have substantially different class distributions.
+
+In particular:
+
+- Real-world Indirect Injection support: **27,001**
+- Synthetic Indirect Injection support: **9**
+
+Therefore, the overall real-world and synthetic scores should be presented side by side, but they should not be treated as measurements from equivalent test populations.
+
+The **99.11% real-world held-out test result remains the headline PromptShield evaluation result**.
+
+---
+
+# 13. Validation, Real-World and Synthetic Comparison
+
+| Metric | Validation | Real-World Test | Synthetic Test |
+|---|---:|---:|---:|
+| Accuracy | 98.54% | **99.11%** | 98.91% |
+| Weighted Precision | 98.55% | **99.13%** | 98.92% |
+| Weighted Recall | 98.54% | **99.11%** | 98.91% |
+| Weighted F1 | 98.54% | **99.11%** | 98.91% |
+
+The same selected checkpoint was used for all three evaluations.
+
+The differences between these results do not mean that the model changed or improved between evaluations.
+
+They reflect performance on datasets with different examples, class distributions, and subtype compositions.
+
+---
+
+# 14. Key Findings
 
 1. The Task 30 evaluator successfully reproduced the Task 29 validation metrics.
 
-2. The selected Epoch 1 checkpoint achieved:
-   - **99.11% test accuracy**
+2. The selected Epoch 1 checkpoint achieved the following on the held-out real-world test set:
+   - **99.11% accuracy**
    - **99.13% weighted precision**
    - **99.11% weighted recall**
    - **99.11% weighted F1**
 
-3. Indirect Injection was classified extremely accurately, with a test F1 of **99.96%**.
+3. Indirect Injection achieved a real-world test F1 of **99.96%**.
 
-4. Direct Jailbreak was comparatively more difficult than the other primary classes, with a test F1 of **94.20%**.
+4. Direct Jailbreak was comparatively more difficult than the other primary classes, with a real-world test F1 of **94.20%**.
 
 5. The largest class-level confusion occurred between Safe and Direct Jailbreak.
 
-6. Persona Hijacking was the weakest subtype with a meaningful test sample size:
+6. Persona Hijacking was the weakest real-world subtype with a meaningful test sample size:
    - 184 / 218 correct
+   - 34 errors
    - 84.40% accuracy
 
-7. Role Override produced an 88.89% test accuracy, but this is based on only 18 examples and should therefore be interpreted cautiously.
+7. Role Override achieved 88.89% real-world test accuracy, but this result is based on only 18 examples and should therefore be interpreted cautiously.
 
-8. Web Content Injection achieved 100% accuracy on the 21,922 examples in this particular held-out test set.
+8. Web Content Injection achieved 100% accuracy on the 21,922 Web Content Injection examples in this particular real-world test set.
+
+9. The synthetic test set achieved:
+   - **98.91% accuracy**
+   - **98.92% weighted precision**
+   - **98.91% weighted recall**
+   - **98.91% weighted F1**
+
+10. Real-world test accuracy was approximately **0.20 percentage points higher** than synthetic test accuracy.
+
+11. The synthetic test set contains only **9 Indirect Injection examples**, so its 100% result for that class should not be treated as a reliable estimate of generalization.
+
+12. Subtype-level analysis revealed weaknesses that are hidden by the approximately 99% overall accuracy, particularly Persona Hijacking.
 
 ---
 
-# 13. Reproducibility
+# 15. Reproducibility
 
 The evaluation is reproducible using:
 
@@ -572,49 +711,98 @@ The generated JSON contains:
 
 ---
 
-# 14. Evaluation Integrity
+# 16. Automated Tests
 
-The following separation was maintained:
+Automated tests for the metric-calculation logic are implemented in:
+
+`ml/tests/test_evaluate.py`
+
+The tests cover:
+
+- Overall accuracy calculation
+- Confusion matrix generation
+- Per-class metric generation
+- Per-subtype correct/error counts
+- Evaluation when subtype information is unavailable
+
+The tests were executed using:
+
+```bash
+cd ml
+python -m pytest tests/test_evaluate.py -v
+```
+
+Result:
+
+**4 passed**
+
+These tests verify the metric-calculation logic without requiring the full trained checkpoint or GPU inference.
+
+---
+
+# 17. Evaluation Integrity
+
+The following separation was maintained throughout the evaluation process:
 
 - Training data was used for model optimization.
-- Validation data was used during Task 29 for model/hyperparameter selection.
+- Validation data was used during Task 29 for model and hyperparameter selection.
+- The selected checkpoint was finalized before the held-out test results were examined.
 - The held-out real-world test set was not used to select the checkpoint.
-- Test results were obtained only after the model configuration had been selected.
-- No further model tuning was performed based on the held-out test results.
+- The synthetic test set was evaluated for comparison and was not used for model selection.
+- No additional training or fine-tuning was performed after examining the real-world or synthetic test results.
+- Test-set results were not used to modify the selected checkpoint.
 
-This prevents the reported test metrics from being intentionally optimized against the held-out test set.
+This separation prevents the reported test metrics from being intentionally optimized against either test set.
 
 ---
 
-# 15. Limitations and Interpretation Notes
+# 18. Limitations and Interpretation Notes
 
-- Overall metrics are weighted and therefore reflect the class distribution of the evaluated dataset.
+- Overall metrics are weighted and therefore reflect the class distribution of each evaluated dataset.
 - Class support is not equal across the three primary classes.
 - Subtype sample sizes vary substantially.
-- Very small subtype groups, particularly Role Override, should not be interpreted using percentage alone.
-- A high score on the current held-out dataset does not guarantee identical performance on future unseen prompt-injection attacks.
-- Web Content Injection achieved 100% accuracy on this test set, but this should not be interpreted as universal perfect detection.
-- Persona Hijacking remains a comparatively difficult subtype based on the held-out results.
-- The model was not modified after viewing the held-out test results.
+- Very small subtype groups should not be interpreted using percentage alone.
+- Role Override has only 18 examples in the real-world test set.
+- Synthetic Indirect Injection has only 9 examples.
+- Several synthetic subtype groups also contain very small numbers of examples.
+- A high score on the current held-out datasets does not guarantee identical performance on future unseen prompt-injection attacks.
+- Web Content Injection achieved 100% accuracy on this real-world test set, but this should not be interpreted as universal perfect detection.
+- Persona Hijacking remains a comparatively difficult subtype based on the held-out real-world results.
+- Real-world and synthetic overall scores are not directly interchangeable because their class and subtype distributions differ.
+- The model was not modified after viewing either test set.
 
 ---
 
-# 16. Task 30 Status
+# 19. Task 30 Status
 
-Task 30 evaluation pipeline has been implemented and validated.
+Task 30 evaluation pipeline has been implemented, tested, and validated.
 
 Completed components:
 
 - Reusable checkpoint evaluation script
-- Overall metrics
-- Per-class metrics
+- Overall accuracy, precision, recall, and F1
+- Per-class precision, recall, F1, and support
 - Confusion matrix
 - Per-subtype evaluation
 - JSON metric export
 - Validation reproducibility check
 - Held-out real-world test evaluation
-- Detailed result documentation
+- Synthetic test evaluation
+- Real-world vs synthetic comparison
+- Automated evaluation metric tests
+- Detailed evaluation documentation
+- Evaluation integrity and limitation documentation
 
 The selected model remains:
 
 `run_01/checkpoint-28371`
+
+The headline held-out real-world result is:
+
+- **Accuracy: 99.11%**
+- **Weighted F1: 99.11%**
+
+The synthetic comparison result is:
+
+- **Accuracy: 98.91%**
+- **Weighted F1: 98.91%**
