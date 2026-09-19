@@ -150,7 +150,7 @@ def compute_metrics(
         "confusion_matrix": matrix.tolist(),
     }
 
-    # Per-subtype metrics, if subtype information exists.
+    # Per-subtype performance, if subtype information exists.
     if "subtype" in df.columns:
         subtype_results = {}
 
@@ -162,26 +162,25 @@ def compute_metrics(
             if pd.isna(subtype):
                 continue
 
-            subtype_accuracy = accuracy_score(
-                group["y_true"],
-                group["y_pred"],
+            count = len(group)
+
+            correct = int(
+                (group["y_true"] == group["y_pred"]).sum()
             )
 
-            subtype_precision, subtype_recall, subtype_f1, _ = (
-                precision_recall_fscore_support(
-                    group["y_true"],
-                    group["y_pred"],
-                    average="weighted",
-                    zero_division=0,
-                )
+            errors = count - correct
+
+            subtype_accuracy = (
+                correct / count
+                if count
+                else 0.0
             )
 
             subtype_results[str(subtype)] = {
-                "count": int(len(group)),
+                "count": int(count),
+                "correct": correct,
+                "errors": int(errors),
                 "accuracy": float(subtype_accuracy),
-                "precision": float(subtype_precision),
-                "recall": float(subtype_recall),
-                "f1": float(subtype_f1),
             }
 
         results["per_subtype"] = subtype_results
@@ -220,17 +219,15 @@ def print_results(metrics: dict) -> None:
     print(np.array(metrics["confusion_matrix"]))
 
     if "per_subtype" in metrics:
-        print("\nPer-Subtype Metrics")
-        print("-------------------")
+        print("\nPer-Subtype Performance")
+        print("-----------------------")
 
         for subtype, values in metrics["per_subtype"].items():
             print(
                 f"{subtype}: "
                 f"accuracy={values['accuracy']:.4f}, "
-                f"precision={values['precision']:.4f}, "
-                f"recall={values['recall']:.4f}, "
-                f"f1={values['f1']:.4f}, "
-                f"count={values['count']}"
+                f"correct={values['correct']}/{values['count']}, "
+                f"errors={values['errors']}"
             )
 
 
