@@ -1,0 +1,108 @@
+{
+  "overall": {
+    "accuracy": 0.9910751932536894,
+    "precision_weighted": 0.9913107575097376,
+    "recall_weighted": 0.9910751932536894,
+    "f1_weighted": 0.9911488159083703
+  },
+  "per_class": {
+    "Safe": {
+      "precision": 0.9908286403861625,
+      "recall": 0.9797931583134447,
+      "f1-score": 0.98528,
+      "support": 12570.0
+    },
+    "Direct Jailbreak": {
+      "precision": 0.9212381244253754,
+      "recall": 0.9637704392433473,
+      "f1-score": 0.9420244437480414,
+      "support": 3119.0
+    },
+    "Indirect Injection": {
+      "precision": 0.9996295884727933,
+      "recall": 0.9994815006851598,
+      "f1-score": 0.9995555390940405,
+      "support": 27001.0
+    },
+    "accuracy": 0.9910751932536894,
+    "macro avg": {
+      "precision": 0.9705654510947771,
+      "recall": 0.9810150327473174,
+      "f1-score": 0.9756199942806939,
+      "support": 42690.0
+    },
+    "weighted avg": {
+      "precision": 0.9913107575097376,
+      "recall": 0.9910751932536894,
+      "f1-score": 0.9911488159083703,
+      "support": 42690.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      12316,
+      244,
+      10
+    ],
+    [
+      113,
+      3006,
+      0
+    ],
+    [
+      1,
+      13,
+      26987
+    ]
+  ],
+  "per_subtype": {
+    "Document Embedding": {
+      "count": 4984,
+      "correct": 4971,
+      "errors": 13,
+      "accuracy": 0.9973916532905297
+    },
+    "Multi-Turn Manipulation": {
+      "count": 968,
+      "correct": 966,
+      "errors": 2,
+      "accuracy": 0.9979338842975206
+    },
+    "Persona Hijacking": {
+      "count": 218,
+      "correct": 184,
+      "errors": 34,
+      "accuracy": 0.8440366972477065
+    },
+    "Policy Evasion": {
+      "count": 1741,
+      "correct": 1669,
+      "errors": 72,
+      "accuracy": 0.9586444572085009
+    },
+    "Role Override": {
+      "count": 18,
+      "correct": 16,
+      "errors": 2,
+      "accuracy": 0.8888888888888888
+    },
+    "System Prompt Overwrite": {
+      "count": 174,
+      "correct": 171,
+      "errors": 3,
+      "accuracy": 0.9827586206896551
+    },
+    "Tool Output Injection": {
+      "count": 95,
+      "correct": 94,
+      "errors": 1,
+      "accuracy": 0.9894736842105263
+    },
+    "Web Content Injection": {
+      "count": 21922,
+      "correct": 21922,
+      "errors": 0,
+      "accuracy": 1.0
+    }
+  }
+}

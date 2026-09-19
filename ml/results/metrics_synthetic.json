@@ -1,0 +1,84 @@
+{
+  "overall": {
+    "accuracy": 0.9891075193253689,
+    "precision_weighted": 0.9891565501512696,
+    "recall_weighted": 0.9891075193253689,
+    "f1_weighted": 0.9891064575559445
+  },
+  "per_class": {
+    "Safe": {
+      "precision": 0.9940450463429861,
+      "recall": 0.9837927756653992,
+      "f1-score": 0.9888923392972314,
+      "support": 21040.0
+    },
+    "Direct Jailbreak": {
+      "precision": 0.9843993046024339,
+      "recall": 0.9942701353911557,
+      "f1-score": 0.9893100990827375,
+      "support": 21641.0
+    },
+    "Indirect Injection": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 9.0
+    },
+    "accuracy": 0.9891075193253689,
+    "macro avg": {
+      "precision": 0.9928147836484733,
+      "recall": 0.9926876370188517,
+      "f1-score": 0.9927341461266562,
+      "support": 42690.0
+    },
+    "weighted avg": {
+      "precision": 0.9891565501512696,
+      "recall": 0.9891075193253689,
+      "f1-score": 0.9891064575559445,
+      "support": 42690.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      20699,
+      341,
+      0
+    ],
+    [
+      124,
+      21517,
+      0
+    ],
+    [
+      0,
+      0,
+      9
+    ]
+  ],
+  "per_subtype": {
+    "Document Embedding": {
+      "count": 9,
+      "correct": 9,
+      "errors": 0,
+      "accuracy": 1.0
+    },
+    "Persona Hijacking": {
+      "count": 14,
+      "correct": 14,
+      "errors": 0,
+      "accuracy": 1.0
+    },
+    "Policy Evasion": {
+      "count": 21603,
+      "correct": 21479,
+      "errors": 124,
+      "accuracy": 0.9942600564736379
+    },
+    "System Prompt Overwrite": {
+      "count": 24,
+      "correct": 24,
+      "errors": 0,
+      "accuracy": 1.0
+    }
+  }
+}
