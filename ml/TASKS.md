@@ -752,7 +752,26 @@ _Ran with `--output-dir` pointed at temp, so no 255 MB checkpoint ever entered t
 
 ---
 
-#### 🔵 Task 29 — Full training run on Colab — **next up**
+#### ✅ Task 29 — Full training run on Colab — **done** (Faiqa)
+
+_Trained on a Colab T4 over the full 453,935-row train split, validated on all 50,438 val rows. Class weights on, `max_length` 512. Details in [`TASK29_RESULTS.md`](TASK29_RESULTS.md); selected checkpoint `run_01/checkpoint-28371`._
+
+_**Two runs compared (29.5 tuning pass):**_
+
+| Run | LR | Batch | Epochs | Best val loss |
+|---|---|---|---|---|
+| 01 | 2e-5 | 16 | 3 | **0.05065** (epoch 1) |
+| 02 | 1e-5 | 16 | 1 | 0.05835 |
+
+_**Overfits after epoch 1.** Val loss climbs every epoch — `0.05065 → 0.05366 → 0.05843` — while train loss keeps falling. Epoch 1 was correctly selected. **3 epochs is the wrong setting for this dataset**; anyone re-running should stop at 1._
+
+_**`resume_from_checkpoint` added to `train.py`** — lets a dropped Colab session resume from the last Drive checkpoint instead of restarting. Wired through `run()`, `parse_args()` and `main()`._
+
+_**`training/validate_checkpoint.py` added** — the Trainer alone emits only `eval_loss`, so without this the reported accuracy/F1 would not have been reproducible._
+
+_**Its 98.54% is not the project's headline number** — it is measured on `val.parquet`, which drove checkpoint selection, and uses weighted averaging. Task 30 produced the honest figure on the real-world held-out set: **99.11%**._
+
+_Checkpoint lives in Drive and locally at `ml/models/run01_ck28371/` (gitignored, 268 MB). `trainer_state.json` corroborates the results file independently: `global_step 28371`, `epoch 1.0`, `best_metric 0.05065430700778961`._
 
 **29.1** Open a Colab notebook, set Runtime → Change runtime type → **T4 GPU**.
 **TEST:** `!nvidia-smi` → **EXPECT:** a T4 listed
