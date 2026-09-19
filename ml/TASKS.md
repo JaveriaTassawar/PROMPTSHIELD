@@ -463,7 +463,9 @@ _Test-set sub-type coverage — **Role Override gets just 18 rows**, so its per-
 | Tool Output Injection | 95 |
 | **Role Override** | **18** ⚠️ |
 
-_`synthetic_test.parquet` is sampled from rows already in train — deliberately **not** held out. Its only job in Task 31 is to show how much higher a synthetic score looks, which is the point being made._
+_`synthetic_test.parquet` is sampled from rows already in train — deliberately **not** held out. Its job in Task 31 is to sit beside the real-world number as a clearly-labelled comparison._
+
+> **Measured in Task 30, correcting the assumption above:** synthetic scored **98.91%**, *lower* than real-world's **99.11%** — not higher as predicted. The cause is class mix: synthetic holds **9** Indirect Injection rows vs the real-world set's **27,001**, and the model is near-perfect on Indirect. The two are not equivalent populations. The real-world score remains the headline because it is the only set held out from both training and checkpoint selection — but do not claim synthetic flatters the model, because here it did not.
 
 **20.1** Write `split(df)` — stratified train/val/test on `label_3class`.
 **TEST:** print each split's shape
@@ -770,7 +772,44 @@ _Ran with `--output-dir` pointed at temp, so no 255 MB checkpoint ever entered t
 
 ---
 
-#### 🟡 Task 30 — `training/evaluate.py`
+#### ✅ Task 30 — `training/evaluate.py` — **done** (Faiqa)
+
+_All five sub-steps delivered, plus 4 unit tests that were not asked for. Full suite: **66 passed, 6 skipped, 0 failed**. Results in [`TASK30_RESULTS.md`](TASK30_RESULTS.md)._
+
+_**HEADLINE RESULT — 99.11% accuracy / 0.9911 F1 on the real-world held-out test set** (42,309 of 42,690 correct). Clears the binding SRS §1.4 target of >90% / F1 >0.85. This is the number for the report: measured on data the model saw neither in training nor in checkpoint selection._
+
+_**Per-class, real-world test:**_
+
+| Class | Precision | Recall | F1 | Support |
+|---|---:|---:|---:|---:|
+| Safe | 99.08% | 97.98% | 98.53% | 12,570 |
+| Direct Jailbreak | 92.12% | 96.38% | 94.20% | 3,119 |
+| Indirect Injection | 99.96% | 99.95% | 99.96% | 27,001 |
+
+_**What the per-sub-type breakdown exposed — this is why 30.4 exists.** The 99.11% headline hides real variation:_
+
+| Sub-type | Test accuracy | Errors / n |
+|---|---:|---|
+| Web Content Injection | 100.00% | 0 / 21,922 |
+| Multi-Turn Manipulation | 99.79% | 2 / 968 |
+| Document Embedding | 99.74% | 13 / 4,984 |
+| Tool Output Injection | 98.95% | 1 / 95 |
+| System Prompt Overwrite | 98.28% | 3 / 174 |
+| Policy Evasion | 95.86% | 72 / 1,741 |
+| **Persona Hijacking** | **84.40%** | **34 / 218** ⚠️ |
+| Role Override | 88.89% | 2 / 18 — sample too small to interpret |
+
+_**Persona Hijacking at 84.40% is the genuine weak point** — a meaningful sample size and clearly the hardest attack type for this checkpoint. **Goes in `MODEL_CARD.md` (Task 32.5).** Role Override's 88.89% rests on 18 rows and must carry that caveat, per section 5._
+
+_**CORRECTION to an earlier assumption in this file.** Section 5 and the Task 20 notes predicted the synthetic score would look **higher** than the real-world one. **It did not** — synthetic came in at 98.91% vs 99.11% real-world._
+
+_The reason is class mix, not model quality: `synthetic_test.parquet` holds **9** Indirect Injection rows against the real-world test set's **27,001**. The model is near-perfect on Indirect (99.96%), so the test set full of them scores higher. The two sets are not equivalent populations and the comparison cannot be read as "synthetic flatters the model" here._
+
+_The reasoning behind reporting the real-world number as the headline is unchanged and still correct — it is the only set held out from both training and checkpoint selection. But the specific claim that synthetic would look better is **not** what the evidence showed, and should not be repeated in the report._
+
+_**Minor, not blocking:** `evaluate.py` re-declares `LABEL2ID` rather than importing it from `dataset.py`. Values match today, so nothing is wrong; a future change to the mapping would need editing in two places._
+
+
 
 **30.1** Write `evaluate(model, dataset)` returning accuracy, precision, recall, F1.
 **TEST:** run on the val split
@@ -790,7 +829,10 @@ _Ran with `--output-dir` pointed at temp, so no 255 MB checkpoint ever entered t
 
 ---
 
-#### 🟡 Task 31 — Run evaluation and check against targets
+#### 🔵 Task 31 — Run evaluation and check against targets — **next up**
+
+> **Most of the measuring is already done.** Task 30 produced every number this task needs — real-world 99.11%, synthetic 98.91%, per-class and per-sub-type. What remains is 31.1: persisting them to `metrics.json` as a committed artefact, and recording the target check (31.4) explicitly. **The >90% / F1 >0.85 target is met on the real-world set, so the section 4 fallback is not needed.**
+
 
 **31.1** Run it and save `metrics.json`.
 **EXPECT:** the file exists and contains both score sets
