@@ -904,7 +904,7 @@ Checkpoint storage:
 
 Shareable checkpoint link:
 
-**To be added in Task 33.**
+https://drive.google.com/drive/folders/1FHMfwe2MEiKZoB4f2M20WVbcG7OICXrd?usp=sharing
 
 ---
 
