@@ -598,6 +598,13 @@ Final results:
 | Weighted Precision | **99.13%** |
 | Weighted Recall | **99.11%** |
 | Weighted F1 | **99.11%** |
+| Macro F1 | **97.56%** |
+
+### Macro F1
+
+The held-out real-world test set achieved a **macro F1 of 97.56%**.
+
+Unlike weighted F1, macro F1 gives each of the three classes equal importance regardless of class size. This provides an additional view of model performance because the real-world test set is not evenly distributed across the three classes.
 
 Correct predictions:
 
@@ -620,6 +627,28 @@ The **99.11% real-world accuracy and 99.11% weighted F1 are the headline PromptS
 | Indirect Injection | 99.96% | 99.95% | 99.96% | 27,001 |
 
 Direct Jailbreak is comparatively more difficult than the other two primary classes.
+
+## 13.2 False-Positive Analysis
+
+The largest single error category on the held-out real-world test set was:
+
+**Safe → Direct Jailbreak: 244 examples**
+
+Out of the model's **381 total errors**, 244 were Safe prompts incorrectly classified as Direct Jailbreak.
+
+This represents approximately **64.0% of all test-set errors**.
+
+This is an important practical failure mode because these predictions are false positives: legitimate prompts may be blocked or flagged as attacks.
+
+Other confusion-matrix errors were:
+
+- Safe → Indirect Injection: 10
+- Direct Jailbreak → Safe: 113
+- Direct Jailbreak → Indirect Injection: 0
+- Indirect Injection → Safe: 1
+- Indirect Injection → Direct Jailbreak: 13
+
+Therefore, although overall accuracy is high, the most common observed failure is the model being overly cautious and classifying some legitimate Safe prompts as Direct Jailbreak attempts.
 
 ---
 
