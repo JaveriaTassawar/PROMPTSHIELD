@@ -856,6 +856,24 @@ This indicates that the subtype classifier has not learned Role Override as a re
 
 Additional diverse, high-quality Role Override examples are therefore an important area for future improvement.
 
+## 19.8 Newly Worded Indirect Injection Generalization
+
+Task 36 manual testing identified a limitation in generalizing to newly worded Indirect Injection prompts.
+
+Three independently written Indirect Injection examples were tested outside the existing held-out examples:
+
+- One was classified as **Safe**.
+- Two were classified as **Direct Jailbreak**.
+- **0 / 3** received the expected `Indirect Injection` label.
+
+The two Direct Jailbreak predictions indicate that the model recognized attack-like behavior but did not correctly distinguish the external-content context that makes the attack indirect.
+
+The Safe prediction represents the more important security limitation because the attack-like prompt was not detected as malicious.
+
+These manually written examples form only a very small qualitative sample and do not replace the full held-out test metrics. However, they indicate that strong aggregate test performance does not guarantee correct classification of newly phrased indirect attacks.
+
+Future work should include a larger independent adversarial evaluation set and more diverse human-written webpage, email, document, and tool-output injection examples.
+
 ---
 
 # 20. Evaluation Integrity
