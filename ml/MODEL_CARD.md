@@ -833,6 +833,29 @@ The selected base model is `distilbert-base-uncased`, which is primarily designe
 
 Performance on non-English or heavily multilingual prompts has not been established by the current evaluation.
 
+## 19.7 Role Override Subtype-Head Limitation
+
+The secondary 8-class attack subtype classifier shows a significant limitation for the **Role Override** subtype.
+
+Only **83 Role Override examples** were available in the training split. The evaluation sets also contained very few examples:
+
+- Training: **83**
+- Validation: **8**
+- Held-out real-world test: **18**
+
+The subtype classifier achieved:
+
+- Validation F1: **0.00%**
+- Held-out real-world F1: **0.00%**
+- Validation correct predictions: **0 / 8**
+- Held-out real-world correct predictions: **0 / 18**
+
+On the held-out real-world test set, most Role Override examples were classified as **Policy Evasion**.
+
+This indicates that the subtype classifier has not learned Role Override as a reliable distinct subtype. Although class weighting was applied during Task 34, weighting alone was not sufficient to compensate for the very small and limited Role Override training set.
+
+Additional diverse, high-quality Role Override examples are therefore an important area for future improvement.
+
 ---
 
 # 20. Evaluation Integrity
