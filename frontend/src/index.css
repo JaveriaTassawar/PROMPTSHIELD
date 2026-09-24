@@ -1,1 +1,205 @@
 @import "tailwindcss";
+
+/* Viewport-height breakpoints, used to fit the auth screens on shorter desktops. */
+@custom-variant short (@media (max-height: 900px));
+@custom-variant shorter (@media (max-height: 780px));
+
+/*
+ * PromptShield design tokens (Task 68, extended in the UI polish pass).
+ *
+ * The SDS UI/UX prototypes set the visual direction (dark-only, navy
+ * surfaces, violet accent, green/red/amber detection states) but do not
+ * specify exact values. The values below are implementation choices that
+ * approximate the prototypes — adjust them here and every screen follows.
+ */
+@theme {
+  /* Surfaces */
+  --color-canvas: #0b1020;
+  --color-surface: #131a2e;
+  --color-surface-raised: #1b2340;
+  --color-border: #2a3354;
+
+  /* Brand */
+  --color-primary: #7c3aed; /* button fills; white text on it is 5.7:1 */
+  --color-primary-hover: #6d28d9;
+  --color-indigo: #4f46e5; /* second stop of the primary gradient */
+  --color-accent: #a78bfa; /* links, focus rings, highlights on dark bg */
+  --color-cyan: #22d3ee; /* secondary: AI/data, scanning and telemetry details only */
+
+  /* Text */
+  --color-fg: #f1f5f9;
+  --color-fg-muted: #94a3b8;
+  --color-fg-subtle: #64748b; /* placeholders and disabled text only */
+
+  /* Detection states — use opacity modifiers for tints, e.g. bg-safe/10 */
+  --color-safe: #4ade80; /* Safe */
+  --color-danger: #f87171; /* Direct Jailbreak / critical */
+  --color-warning: #fbbf24; /* Indirect Injection / warning */
+
+  /* Typography — Inter / JetBrains Mono, bundled via @fontsource-variable (see main.jsx) */
+  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, "Liberation Mono", monospace;
+
+  /* Shape and depth */
+  --radius-control: 0.5rem;
+  --radius-card: 0.75rem;
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.4);
+  --shadow-glow: 0 0 0 1px rgb(167 139 250 / 0.25), 0 8px 24px -8px rgb(124 58 237 / 0.5);
+  --shadow-glow-strong: 0 0 0 1px rgb(167 139 250 / 0.4), 0 10px 32px -8px rgb(124 58 237 / 0.7);
+
+  /* Motion */
+  --ease-snappy: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-fade-up: fade-up 0.45s var(--ease-snappy) both;
+  --animate-fade-in: fade-in 0.6s ease-out both;
+  --animate-alert-in: alert-in 0.25s var(--ease-snappy) both;
+  --animate-scale-in: scale-in 0.2s var(--ease-snappy) both;
+  --animate-draw: draw 0.4s 0.1s ease-out both;
+  --animate-sheen: sheen 0.8s ease-out;
+  --animate-drift: drift 36s ease-in-out infinite alternate;
+  --animate-sweep: sweep 10s linear infinite;
+  --animate-spin-slow: spin 60s linear infinite;
+  --animate-breathe: breathe 4s ease-in-out infinite;
+  --animate-blink: blink 2s ease-in-out infinite;
+  --animate-scan-line: scan-line 3.2s ease-in-out infinite;
+  --animate-scan-down: scan-down 1.4s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes alert-in {
+    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.5); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes draw {
+    from { stroke-dashoffset: 24; }
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes sheen {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(100%); }
+  }
+  @keyframes drift {
+    from { transform: translate(0, 0) scale(1); }
+    to { transform: translate(40px, -30px) scale(1.08); }
+  }
+  @keyframes sweep {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 0.9; }
+    50% { transform: scale(1.04); opacity: 1; }
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  @keyframes scan-line {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(250%); }
+  }
+  /* Prompt Analyzer: sweep down the prompt while an analysis is running */
+  @keyframes scan-down {
+    from { transform: translateY(-100%); }
+    to { transform: translateY(100%); }
+  }
+  @keyframes shimmer {
+    0%, 100% { opacity: 0.45; }
+    50% { opacity: 0.9; }
+  }
+}
+
+/* Defense visualization (AuthLayout). Distances scale with --viz, the box size. */
+@keyframes signal-pass {
+  0% { opacity: 0; transform: translateX(calc(var(--viz) * -0.5)); }
+  12% { opacity: 1; }
+  70% { opacity: 1; }
+  88%, 100% { opacity: 0; transform: translateX(calc(var(--viz) * -0.1)); }
+}
+@keyframes signal-blocked {
+  0% { opacity: 0; transform: translateX(calc(var(--viz) * -0.5)); }
+  10% { opacity: 1; }
+  52% { opacity: 1; transform: translateX(calc(var(--viz) * -0.26)); }
+  56%, 100% { opacity: 0; transform: translateX(calc(var(--viz) * -0.26)); }
+}
+@keyframes threat-hit {
+  0%, 51% { opacity: 0; transform: scale(0.4); }
+  55% { opacity: 0.9; transform: scale(1); }
+  75%, 100% { opacity: 0; transform: scale(2.4); }
+}
+@keyframes threat-label {
+  0%, 53% { opacity: 0; transform: translateX(0); }
+  56% { opacity: 1; transform: translateX(-2px); }
+  58% { transform: translateX(2px); }
+  60% { transform: translateX(0); }
+  82% { opacity: 1; }
+  90%, 100% { opacity: 0; }
+}
+@keyframes shield-flash {
+  0%, 52% { opacity: 0; }
+  57% { opacity: 1; }
+  80%, 100% { opacity: 0; }
+}
+
+/* Confidence meter (ConfidenceMeter): the fill grows from zero to its own scale once. */
+@keyframes grow-x {
+  from { transform: scaleX(0); }
+}
+
+/* Frosted card surface (border and shadow come from utilities, see Card). */
+@utility glass {
+  background-color: rgb(19 26 46 / 0.78);
+  backdrop-filter: blur(14px);
+}
+
+/* Faint dot grid that fades out towards the edges. */
+@utility bg-grid {
+  background-image: radial-gradient(rgb(148 163 184 / 0.14) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: rgb(124 58 237 / 0.45);
+  }
+
+  /* Honour the OS "reduce motion" setting: content still appears, instantly. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      animation-delay: 0ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
