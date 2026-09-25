@@ -14,10 +14,13 @@ function NextSteps({ scenario }) {
       <section aria-labelledby="next-steps-heading">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <AriaAvatar className="h-9 w-9" />
-            <h2 id="next-steps-heading" className="font-semibold text-fg">
-              Recommended next steps
-            </h2>
+            <AriaAvatar tone={scenario.detection.variant} className="w-16" />
+            <div>
+              <p className="font-mono text-[11px] tracking-widest text-cyan/80 uppercase">Aria · Security guide</p>
+              <h2 id="next-steps-heading" className="font-semibold text-fg">
+                Recommended next steps
+              </h2>
+            </div>
           </div>
           <div className="flex flex-col gap-0.5 sm:items-end">
             <p className="font-mono text-[11px] tracking-widest text-fg-muted uppercase">
