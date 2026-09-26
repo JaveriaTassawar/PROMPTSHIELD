@@ -162,7 +162,11 @@ def classify(text: str) -> dict[str, Any]:
             "subtype_confidence": None
         }
 
-    Attack prompts additionally run the subtype classifier.
+    Attack prompts run the subtype classifier only when the optional
+    subtype model path is configured.
+
+    If the subtype model is not configured, the primary attack result
+    is still returned successfully with subtype fields set to None.
     """
 
     if not isinstance(text, str):
@@ -191,6 +195,12 @@ def classify(text: str) -> dict[str, Any]:
     }
 
     if label == "Safe":
+        return result
+
+    # The subtype classifier is optional.
+    # If no subtype checkpoint is configured, preserve the primary
+    # attack detection instead of failing the whole request.
+    if not os.getenv(SUBTYPE_MODEL_ENV):
         return result
 
     subtype_tokenizer, subtype_model = load_subtype_model()
