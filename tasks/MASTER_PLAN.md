@@ -241,7 +241,7 @@ _**Full detail — dataset inventory, schema quirks, label mapping, Colab setup,
 ### Backend (Jawaria) — DB Models
 _Independent track — can start immediately, in parallel with ML. Branch prefix: `backend/`._
 
-🔵 Task 38 — Scaffold FastAPI app, health route
+✅ Task 38 — Scaffold FastAPI app, health route — **done** (10 tests pass; `/health`, `/`, `/docs`, `/openapi.json` all 200. `create_app()` factory — **every later router must be included inside it**, a route added after it returns attaches only to the module-level app and 404s in tests. Config **refuses to boot** with the placeholder JWT secret outside development. CORS from `CORS_ORIGINS`, not `*`. **Found: `.env.example` says `MODEL_PATH` but the ML wrapper reads `PROMPTSHIELD_MODEL_PATH` — `Settings` accepts either; fix the example file at Task 56**)
 🟡 Task 39 — SQLAlchemy engine + session (SQLite)
 🟡 Task 40 — Alembic init
 🟡 Task 41 — Model: User

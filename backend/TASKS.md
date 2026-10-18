@@ -55,9 +55,25 @@ Markers: ✅ done · 🔵 ready now · 🟡 in progress order (finish the one be
 
 ### DB Models — independent track, start immediately
 
-🔵 **Task 38** — Scaffold the FastAPI app + `GET /health`. Structure: `app/main.py`, `app/models/`, `app/routers/`, `app/schemas/`, `app/core/`. Add `requirements.txt`.
+✅ **Task 38** — Scaffold the FastAPI app + `GET /health`. Structure: `app/main.py`, `app/models/`, `app/routers/`, `app/schemas/`, `app/core/`. Add `requirements.txt`. — **done**
 
-🟡 **Task 39** — SQLAlchemy engine + session (SQLite), with a `get_db()` dependency.
+_Server starts and serves: `/health`, `/`, `/docs` and `/openapi.json` all return 200. **10 tests pass.** FastAPI 0.146.0, SQLAlchemy 2.1.5, venv at `backend/.venv`._
+
+_**`create_app()` is a factory, not a module-level app.** Tests build isolated instances, and importing `app.main` does not wire things up as a side effect._
+
+_**Fixed while testing:** the `/` route was registered with `@app.get` *after* `create_app()` returned, so it attached only to the module-level instance — any app a test built would 404 there. Caught by `test_root_points_at_docs`; the route now lives inside the factory. Worth knowing because every later router must be included **inside** `create_app()` for the same reason._
+
+_**Config refuses to boot unsafely.** `JWT_SECRET_KEY` defaults to the `.env.example` placeholder, and `Settings` raises on startup if that placeholder (or anything under 32 chars) is used when `ENVIRONMENT` is not `development`. A usable default would ship a signing key in the repo and make every token forgeable by anyone who read the source. Four tests cover this, including that `repr()` never prints the secret._
+
+_**CORS is read from `CORS_ORIGINS`, not wildcarded** — defaults to the Vite (5173) and CRA (3000) dev ports for Rana's frontend. `allow_origins=["*"]` with credentials is rejected by browsers anyway, and would let any site call this API with a logged-in user's session once Task 47 lands._
+
+_**Config inconsistency found and handled:** `.env.example` names the model path `MODEL_PATH`, but the ML wrapper (`ml/inference/classifier.py`) reads `PROMPTSHIELD_MODEL_PATH`. `Settings` accepts **either**, preferring the ML name, so the two tracks cannot disagree about one path at Task 56. The example file also points at `distilbert-promptshield`, which does not exist — the real checkpoint is `ml/models/run01_ck28371`. **Update `.env.example` at Task 56.**_
+
+_`/health` reports `environment`, `database`, `model_configured` and `subtype_model_configured` rather than a bare `ok` — those are what tend to be wrong on a new machine, and surfacing them here beats discovering them via a 500 from Task 56. It touches neither the database nor the model, so it cannot fail for reasons unrelated to liveness._
+
+_Verified gitignored: `backend/.venv/`, `backend/promptshield.db`, `__pycache__/`, `.env`. Exactly 10 source files stage._
+
+🔵 **Task 39** — SQLAlchemy engine + session (SQLite), with a `get_db()` dependency. — **next up**
 
 🟡 **Task 40** — `alembic init`, wire it to the same `DATABASE_URL`, generate the first migration.
 
