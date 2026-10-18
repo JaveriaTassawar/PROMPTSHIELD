@@ -232,11 +232,36 @@ _**Full detail — dataset inventory, schema quirks, label mapping, Colab setup,
 ✅ Task 34 — *(Stretch)* Sub-type classifier head — 8 sub-types; metrics reported separately from the primary classifier — **done** (Faiqa) (8-class head over attack rows; suite 74 passed / 0 failed. **99.52% accuracy but macro F1 only 0.8283** — **Role Override scores 0.0000, never predicted, 0 of 18 correct**, on 83 training examples; 14 of the 18 land as Policy Evasion. Disclosed openly and written up in `MODEL_CARD.md` §19.7. Stretch goal, so the 3-class headline is unaffected — **quote macro F1, not the 99.52%**)
 
 **Inference Wrapper** — _the ML→Backend handoff_
-🔵 Task 35 — `inference/classifier.py` — `classify(text)` → 3-class label + confidence (+ sub-type if Task 34 done) — **next up** (Task 33 is merged, so this is unblocked; the Drive checkpoint ships its own tokenizer. Task 34 is done too, so `classify()` can return a sub-type — but it must carry the Role Override caveat, since that sub-type is never predicted)
-🟡 Task 36 — Test on example prompts, one per 3-class bucket, from the **real-world** test set
-🟡 Task 37 — Time it, confirm **<200 ms** (SRS §4.1)
+✅ Task 35 — `inference/classifier.py` — `classify(text)` → 3-class label + confidence (+ sub-type if Task 34 done) — **done** (Faiqa) (lazy model caching, paths from env so weights stay out of git. **Bug found in review and fixed**: raised on every attack prompt when the optional sub-type model was unset — safe prompts worked, attacks crashed, which would have been backend 500s at Task 51. The fix also nearly got reverted because Tasks 36/37 were branched before it — **branch from `main`, not from a sibling branch**)
+✅ Task 36 — Test on example prompts, one per 3-class bucket, from the **real-world** test set — **done** (Faiqa) (3/3 correct on held-out examples. **Then she hand-wrote 3 novel Indirect Injection prompts and the model got 0/3 — one classified Safe outright.** Documented as `MODEL_CARD.md` §19.8; this is the honest counterweight to the 99.11% headline)
+✅ Task 37 — Time it, confirm **<200 ms** (SRS §4.1) — **done** (Faiqa) (**PASS with ~20× headroom** — 4.69 ms Safe, 10.88 ms attack. Safe prompts skip the sub-type model. The caching is load-bearing: first call costs ~1.2 s, so a backend reloading per request would miss the target sixfold)
 
-**🔴 Backend Task 56 (POST /api/analyze-prompt) depends on Task 35. If ML is still in progress, Backend can stub `classify()` with a keyword-rule fake to keep moving — see Dependency Map join point #1 — which downgrades Task 56 back to 🔵 in practice.**
+**✅ ML TRACK COMPLETE — Tasks 13–37 all merged. Backend Task 56 is unblocked: `classify()` exists and works, no stub needed.**
+
+---
+
+### ML results — what to claim, and what not to
+
+_Read this before writing the report or the viva slides. All figures measured, sources in `ml/results/`._
+
+| Claim | Figure |
+|---|---|
+| **Headline (SRS §1.4 target: >90% / F1 >0.85)** | **99.11% accuracy · 0.9911 weighted F1** — PASS |
+| More representative | **macro F1 0.9756** — classes weighted equally |
+| Latency (SRS §4.1 target: <200 ms) | **4.69 ms** Safe · **10.88 ms** attack — PASS |
+| Sub-type head (stretch) | 99.52% accuracy but **macro F1 only 0.8283** |
+
+**Three caveats that must travel with the headline.** Stating these first is what makes the result credible; being caught by them is what makes it look overclaimed.
+
+1. **The test set flatters the number.** 51.4% of its 42,690 rows are Web Content Injection, all from Microsoft llmail, and the model scores 100.00% on them. Over half the headline is one easy category from one source.
+
+2. **No unseen sources.** Test rows are unseen *rows*, but every one of the 20 source datasets also appears in training. This measures generalisation to new examples of familiar data, not to new data.
+
+3. **Novel attacks exposed the gap (Task 36).** Three hand-written Indirect Injection prompts: **0 of 3 correct**, one classified **Safe**. `MODEL_CARD.md` §19.8.
+
+**Also disclose:** 244 of 381 errors are Safe prompts flagged as Direct Jailbreak (64% of all errors — the failure a live demo surfaces), and **Role Override is never predicted** by the sub-type head (0 of 18, on 83 training examples).
+
+**Honest one-line summary:** _"99.11% on our held-out set, but that set is 51% one easy category — macro F1 0.9756 is fairer, and on hand-written novel indirect attacks we scored 0 of 3, which is our main documented limitation."_
 
 ### Backend (Jawaria) — DB Models
 _Independent track — can start immediately, in parallel with ML. Branch prefix: `backend/`._
