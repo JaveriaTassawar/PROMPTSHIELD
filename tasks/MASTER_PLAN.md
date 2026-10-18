@@ -251,6 +251,18 @@ _Read this before writing the report or the viva slides. All figures measured, s
 | Latency (SRS §4.1 target: <200 ms) | **4.69 ms** Safe · **10.88 ms** attack — PASS |
 | Sub-type head (stretch) | 99.52% accuracy but **macro F1 only 0.8283** |
 
+**Composition-capped re-score** (`training/evaluate_balanced.py` → `results/metrics_balanced.json`). Capping each sub-type at 1,000 rows **and** each source at 400 within a sub-type drops Web Content Injection from 51.4% of the set to 16.1%. On the resulting 4,957 rows:
+
+| | Full test set | Composition-capped |
+|---|---:|---:|
+| Accuracy | 99.11% | **97.14%** |
+| Weighted F1 | 0.9911 | **0.9714** |
+| Macro F1 | 0.9756 | **0.9731** |
+
+**The model holds up.** Removing the easy bulk costs about 2 points, not 10 — so the headline is flattered by composition but not hollow, and **both figures clear the SRS >90% / F1 >0.85 target**. That is a stronger claim than either number alone: performance survives a test set no single sub-type or source dominates.
+
+Macro F1 barely moves (0.9756 → 0.9731), which is the expected result and a useful cross-check — macro already weighted the classes equally, so capping mostly confirms what it was already reporting.
+
 **Three caveats that must travel with the headline.** Stating these first is what makes the result credible; being caught by them is what makes it look overclaimed.
 
 1. **The test set flatters the number.** 51.4% of its 42,690 rows are Web Content Injection, all from Microsoft llmail, and the model scores 100.00% on them. Over half the headline is one easy category from one source.
@@ -261,7 +273,9 @@ _Read this before writing the report or the viva slides. All figures measured, s
 
 **Also disclose:** 244 of 381 errors are Safe prompts flagged as Direct Jailbreak (64% of all errors — the failure a live demo surfaces), and **Role Override is never predicted** by the sub-type head (0 of 18, on 83 training examples).
 
-**Honest one-line summary:** _"99.11% on our held-out set, but that set is 51% one easy category — macro F1 0.9756 is fairer, and on hand-written novel indirect attacks we scored 0 of 3, which is our main documented limitation."_
+**Honest one-line summary:** _"99.11% on our held-out set. That set is 51% one easy category, so we re-scored it with every sub-type and source capped — 97.14%, still clearing the target. The real limitation is generalisation: on hand-written novel indirect attacks we scored 0 of 3."_
+
+**Persona Hijacking is the consistent weak point** — **84.40% on both** the full and the capped set, the only sub-type with a meaningful sample that stays below 90%. Pair it with the Task 36 novel-prompt result when discussing limitations: both point at the same underlying thing, that the model leans on surface wording more than on the structure of an attack.
 
 ### Backend (Jawaria) — DB Models
 _Independent track — can start immediately, in parallel with ML. Branch prefix: `backend/`._
