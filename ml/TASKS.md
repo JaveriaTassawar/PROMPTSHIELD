@@ -900,9 +900,15 @@ _Only 1.9% of Safe rows, so it is not alarming — but it is the failure an exam
 
 ---
 
-#### 🔵 Task 32 — `MODEL_CARD.md` — **next up**
+#### ✅ Task 32 — `MODEL_CARD.md` — **done** (Faiqa)
 
-> **Everything this needs is already measured** — sources in section 2, dedup findings in 2d, both scores and every breakdown in `results/metrics_real.json` and `results/metrics_synthetic.json`. This task is writing, not measuring.
+_982 lines at [`MODEL_CARD.md`](MODEL_CARD.md). Covers all six sub-steps: taxonomy, the full source inventory, the dedup finding, both scores, every weak sub-type, and the fallback question._
+
+_**Both figures flagged in Task 31 were carried in** — macro F1 **0.9756** alongside weighted 0.9911, and the **244** Safe→Direct false positives. Neither had to be chased._
+
+_**32.6 correctly resolved as a no-op** — the >90% / F1 >0.85 target was met outright, so no fallback wording was needed._
+
+_**§19.7 added after review** — the sub-type head's Role Override failure (see Task 34) was initially absent, because the card discussed Role Override only as a 3-class weakness. Same sub-type, different model, different failure. Now documented with training/val/test counts, both 0.00% F1 figures, and where the misclassifications land._
 >
 > **32.4 must carry both F1 figures** — weighted 0.9911 *and* macro 0.9756 — and state the real-world/synthetic comparison honestly: synthetic scored **lower** (98.91%), because it holds 9 Indirect rows against the real set's 27,001, not because synthetic is harder.
 >
@@ -923,7 +929,13 @@ _Only 1.9% of Safe rows, so it is not alarming — but it is the failure an exam
 
 ---
 
-#### 🟡 Task 33 — Save the checkpoint
+#### ✅ Task 33 — Save the checkpoint — **done** (Faiqa)
+
+_Drive link recorded in `MODEL_CARD.md`, replacing the Task 32 placeholder. **Link opened and verified** — the folder holds a complete, self-contained checkpoint: `config.json`, `model.safetensors`, `tokenizer.json`, `tokenizer_config.json`, `trainer_state.json`, `training_args.bin`, plus the optimiser/scheduler state (10 files)._
+
+_Self-contained matters for **Task 35**: the tokenizer travels with the weights, so the inference wrapper does not have to guess which one produced them._
+
+_Weights stay out of git as intended — 268 MB against GitHub's 100 MB ceiling._
 
 **33.1** Save the final model to Google Drive.
 **EXPECT:** the folder exists in Drive
@@ -939,7 +951,35 @@ git check-ignore -v ml/models/checkpoints/
 
 ---
 
-#### 🟡 Task 34 — *(Stretch)* Sub-type classifier head
+#### ✅ Task 34 — *(Stretch)* Sub-type classifier head — **done** (Faiqa)
+
+_A second 8-class DistilBERT over attack rows only. 1,782 lines: `training/subtype_dataset.py`, `training/train_subtype.py`, `training/evaluate_subtype.py`, 8 new tests, and metrics in [`results/subtype_test_metrics.json`](results/subtype_test_metrics.json). **Full suite 74 passed, 0 failed.**_
+
+_**Headline is 99.52% accuracy — and it hides a total failure.** Read the macro F1 instead:_
+
+| | Accuracy | Macro F1 | Weighted F1 |
+|---|---:|---:|---:|
+| Real-world test | 99.52% | **0.8283** | 0.9948 |
+| Validation | 99.70% | 0.8347 | 0.9968 |
+
+_The 17-point macro/weighted gap is the whole story:_
+
+| Sub-type | F1 | Support |
+|---|---:|---:|
+| Web Content Injection | 1.0000 | 21,922 |
+| Multi-Turn Manipulation | 0.9953 | 968 |
+| Tool Output Injection | 0.9895 | 95 |
+| Document Embedding | 0.9986 | 4,984 |
+| Policy Evasion | 0.9626 | 1,741 |
+| Persona Hijacking | 0.8867 | 218 |
+| System Prompt Overwrite | 0.7938 | 174 |
+| **Role Override** | **0.0000** | **18** |
+
+_**Role Override is never predicted — 0 of 18 correct.** Traced through the confusion matrix, the 18 test rows land as: 14 Policy Evasion, 2 System Prompt Overwrite, 1 Document Embedding, 1 Tool Output Injection. Cause is **83 training examples**; square-root moderated inverse-frequency weighting was applied and was not enough._
+
+_**Faiqa disclosed this rather than burying it** — bolded 0.00% in both her tables and wrote it up in `MODEL_CARD.md` §19.7._
+
+_**This does not affect the project's headline claim.** Task 34 is a stretch goal; the SRS requires 3-class output only, and that classifier scores 99.11%. 7 of 8 sub-types work. For the viva: quote **macro F1 0.8283**, not the 99.52% accuracy — the accuracy figure is carried by Web Content Injection's 21,922 rows and says almost nothing about the rare sub-types._
 
 **34.1** Filter to rows whose 3-class label is Direct Jailbreak or Indirect Injection.
 **EXPECT:** Safe rows excluded
@@ -954,7 +994,13 @@ git check-ignore -v ml/models/checkpoints/
 
 ### Inference Wrapper
 
-#### 🔴 Task 35 — `inference/classifier.py` — **needs Task 33 merged**
+#### 🔵 Task 35 — `inference/classifier.py` — **next up** (unblocked)
+
+> **Task 33 is merged, so this is no longer blocked.** The Drive checkpoint is self-contained — tokenizer included — so `load_model()` does not have to guess which tokenizer produced the weights.
+>
+> **Task 34 is done too**, so `classify()` can return a sub-type alongside the 3-class label. If it does, **Role Override must carry a caveat**: the sub-type head never predicts it (0 of 18), so a returned sub-type of "Policy Evasion" may in fact be Role Override. Never present a sub-type with the same confidence as the 3-class label.
+>
+> Remember 35.1's point about loading at module level — Task 37 requires **<200 ms** per call, and reloading a 268 MB checkpoint per request would miss that by orders of magnitude.
 
 **35.1** Write `load_model()` — loads the checkpoint once, at module level, not per call.
 **TEST:** import it and print the model type
