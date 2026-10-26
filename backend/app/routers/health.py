@@ -18,6 +18,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.core.config import get_settings
+from app.services import classifier as classifier_service
 
 router = APIRouter(tags=["health"])
 
@@ -35,5 +36,8 @@ def health() -> dict:
         # Reported so a misconfigured deployment is visible before the first
         # /api/analyze-prompt call rather than after it.
         "model_configured": bool(settings.model_path),
+        # Actually importable and loadable, not merely configured --
+        # a path pointing at nothing would otherwise look healthy.
+        "model_available": classifier_service.is_available(),
         "subtype_model_configured": bool(settings.subtype_model_path),
     }

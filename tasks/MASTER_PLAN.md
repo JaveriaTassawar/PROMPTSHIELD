@@ -308,10 +308,10 @@ _Depends only on Task 41 (User model), not on ML._
 ### Backend (Jawaria) — Prompt Analysis Endpoints
 _Task 56 is the hard ML dependency — see join point #1 above._
 
-🔵 Task 56 — POST /api/analyze-prompt (safe prompt test) — **next up, UNBLOCKED** (ML Tasks 35–37 are merged: `ml/inference/classifier.py` exists, `classify()` works, latency is 4.7–10.9 ms. No stub needed. Three things decided earlier that this task must honour: **treat `subtype` AND `guidance` as optional** (the sub-type model may be unconfigured, and the frontend renders its own guidance until Task 82); **reject oversized input with 422** before it reaches the `Text` column, where it would be a 500; and **fix `.env.example`**, which names `MODEL_PATH` while the ML wrapper reads `PROMPTSHIELD_MODEL_PATH` and points at a checkpoint directory that does not exist — the real one is `ml/models/run01_ck28371`)
-🟡 Task 57 — Store AnalysisResult row
-🟡 Task 58 — Test with jailbreak-style prompt
-🟡 Task 59 — POST /api/safe-prompt
+✅ Task 56 — POST /api/analyze-prompt — **done** (232 tests pass. **torch is deliberately NOT in the backend venv** — the import is lazy and a missing model is **503, not a startup crash**; the suite stays at ~50s and the API runs without 2 GB of ML dependencies. Verified against the real model from the ML venv: Safe/Direct Jailbreak both correct, no taxonomy drift. **The prompt is stored before classification** so a model failure does not lose it. One transaction for prompt+analysis+subtype. Oversized input 422 at the edge. `.env.example` corrected)
+✅ Task 57 — Store AnalysisResult row — **done** (delivered with Task 56; prompt + analysis + sub-type commit as one transaction so a partial write cannot leave an analysed prompt with no analysis)
+✅ Task 58 — Test with jailbreak-style prompt — **done** (`test_stored_row_matches_the_response` compares the stored row against the returned body field by field — checking each separately can both pass while they disagree)
+🔵 Task 59 — POST /api/safe-prompt
 🟡 Task 60 — POST /api/avatar-guide
 🟡 Task 61 — GET /api/history
 

@@ -400,14 +400,42 @@ _Insufficient role is **403, not a concealing 404** — these routes appear in t
 
 ### Prompt Analysis Endpoints
 
-🔴 **Task 56** — `POST /api/analyze-prompt` — **needs ML Task 35 merged** (`ml/inference/classifier.py` → `classify(text)`).
-  **Unblock trick:** if ML is still running, stub `classify()` behind an interface — e.g. a keyword rule ("ignore previous instructions" → Direct Jailbreak) — and keep building Tasks 57–66. Swap in the real classifier when Task 35 lands. Keep the stub in one file so the swap is a one-line change.
+✅ **Task 56** — `POST /api/analyze-prompt` — **done** (no stub needed; ML Task 35 is merged)
 
-🟡 **Task 57** — Persist the `AnalysisResult` row (and the `AttackSubtype` row when a sub-type is returned).
+✅ **Task 57** — Persist the `AnalysisResult` row (and the `AttackSubtype` row when a sub-type is returned). — **done**
 
-🟡 **Task 58** — Test with a jailbreak-style prompt end to end; confirm the stored row matches the response.
+✅ **Task 58** — Test with a jailbreak-style prompt end to end; confirm the stored row matches the response. — **done**
 
-🟡 **Task 59** — `POST /api/safe-prompt` — rule/template-based rewrite (no live LLM call in v1).
+_`app/routers/analysis.py`, `app/services/classifier.py`, `app/schemas/analysis.py`. **232 tests pass, 1 skipped.** This is where the ML track meets the API._
+
+_**THE CENTRAL DECISION: torch is NOT installed in the backend venv, and the import is lazy.** The ML wrapper needs torch and transformers — about 2 GB. Three reasons not to force that on the API: the suite runs in ~50s precisely because nothing imports torch; Rana's frontend work needs a running API, not a working model; and a deployment serving only the dashboard does not need inference._
+
+_So `app/services/classifier.py` imports inside the function, on first use, and **a missing model is 503, not a crash at startup**. 503 is honest — the endpoint is fine, the capability is not. `/health` now reports `model_available`: actually loadable, not merely configured._
+
+_**Verified against the real model**, not only stubs. The backend venv cannot import torch, so the service-layer contract was exercised from the ML venv:_
+
+```
+Safe prompt                        -> Safe              conf 1.000  severity Low
+"Ignore all previous instructions" -> Direct Jailbreak  conf 1.000  severity High
+"You are now DAN"                  -> Direct Jailbreak  conf 0.998  severity High
+All labels in PROMPT_TYPES -- no taxonomy drift.
+```
+
+_**The prompt is stored BEFORE it is classified**, as `pending`, and survives a classifier failure. Classifying first would lose every prompt that crashed the model — and for a security tool those are the interesting ones. A test asserts the row remains `pending` after a 503._
+
+_**One transaction for prompt + analysis + sub-type.** A partial commit would leave an analysed prompt with no analysis, or a sub-type pointing at nothing — states the Tasks 60–63 analytics cannot interpret._
+
+_**Oversized input is 422 at the edge** (20,000 chars ≈ 5,000 tokens), not a 500 from the database and not wasted inference time. Task 42 deliberately left the column uncapped; the limit belongs here._
+
+_**An impossible sub-type is dropped, not stored** — `is_valid_for()` from Task 44 rejects e.g. "Policy Evasion" under an Indirect Injection result._
+
+_**Role Override is flagged, not hidden** — `subtypeReliable: false` travels in the response, so the UI can qualify a sub-type the model scores 0.00 F1 on._
+
+_**The endpoint requires authentication.** Not stated in the plan, but `Prompt.user_id` exists, Task 60 shows "my prompts", and an anonymous endpoint would let anyone spend the inference budget._
+
+_**`.env.example` corrected** — it named `MODEL_PATH` while the ML wrapper reads `PROMPTSHIELD_MODEL_PATH`, and pointed at a checkpoint directory that does not exist. It now documents both variables, the real path, how to generate a JWT secret, and that the sub-type model is optional._
+
+🔵 **Task 59** — `POST /api/safe-prompt` — rule/template-based rewrite (no live LLM call in v1).
 
 🟡 **Task 60** — `POST /api/avatar-guide` — template-based explanation keyed by `prompt_type` + `subtype`.
 
