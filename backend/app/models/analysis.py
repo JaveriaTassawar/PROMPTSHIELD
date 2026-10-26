@@ -157,6 +157,16 @@ class AnalysisResult(Base):
         cascade="all, delete-orphan",
     )
 
+    # Feeds `avatarFeedback`. Optional: the frontend currently renders fixed
+    # per-class copy from its own config and only starts calling the backend
+    # at Task 82 -- so Task 56 must treat this as absent-able, like subtype.
+    guidance: Mapped["AvatarGuidance | None"] = relationship(  # noqa: F821
+        "AvatarGuidance",
+        back_populates="analysis",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
     __table_args__ = (
         CheckConstraint(
             "prompt_type IN ('" + "', '".join(PROMPT_TYPES) + "')",
