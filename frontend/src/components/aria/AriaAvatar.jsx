@@ -1,7 +1,7 @@
-import ariaMascot from '../../assets/aria-mascot.png'
+import ariaMascot from '../../assets/aria-mascot.webp'
 
 // Aria, PromptShield's security-guide mascot (transparent artwork in
-// assets/aria-mascot.png). Size it with `className` on the wrapper — usually a
+// assets/aria-mascot.webp). Size it with `className` on the wrapper — usually a
 // width; the image keeps its own aspect ratio.
 //
 // `tone` (safe / danger / warning) adds a faint result-coloured glow behind
