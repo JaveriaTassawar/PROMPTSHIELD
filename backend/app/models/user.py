@@ -116,6 +116,23 @@ class User(Base):
         "Prompt", back_populates="user"
     )
 
+    # These two DO cascade, unlike prompts. A prompt is evidence the
+    # analytics aggregate over, so it survives its user anonymised; a
+    # training session and a module record are personal progress with no
+    # meaning detached from the person, and orphans would inflate
+    # completion counts for users who no longer exist.
+    simulations: Mapped[list["SimulationSession"]] = relationship(  # noqa: F821
+        "SimulationSession",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    progress: Mapped[list["LearningProgress"]] = relationship(  # noqa: F821
+        "LearningProgress",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
     __table_args__ = (
         CheckConstraint(
             "role IN ('" + "', '".join(USER_ROLES) + "')",

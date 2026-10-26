@@ -285,12 +285,37 @@ _**`displayed_at` is not a creation timestamp.** The plan names it `displayed_at
 
 _Both `message_text` and `explanation` are required: guidance with no explanation is a notification, not teaching, and teaching is the avatar's stated purpose in the project title._
 
-🔵 **Task 48** — Model: **SimulationSession** — `simulation_id` PK, `user_id` FK, `scenario_name`, `description`, `start_time`, `end_time`, `outcome`. — **next up**
+✅ **Task 48** — Model: **SimulationSession** — `simulation_id` PK, `user_id` FK, `scenario_name`, `description`, `start_time`, `end_time`, `outcome`. — **done**
+
+_`app/models/simulation.py`, migration `3b3e1cf60111` (shared with Task 49). **162 tests pass.**_
+
+_**NULL `outcome` is a real state, not missing data** — "started, not finished", distinct from `abandoned`. One is a user still working, the other gave up, and the Tasks 60–63 analytics must not conflate them._
+
+_**`end_time >= start_time` is CHECK-enforced.** Catches clock problems and transposed arguments; without it a session that ended before it began silently produces **negative durations** in the analytics._
+
+_**`difficulty` reuses the frontend's existing labels** — `Beginner` / `Intermediate` / `Advanced` from `frontend/src/config/simulation.js`, which notes "Backend Task 62 may replace it". Same strings means Task 62 can seed scenarios with no remapping._
+
+_**This FK CASCADEs, unlike `Prompt → User`.** Deliberate: a prompt is evidence the analytics aggregate over, so it survives its user anonymised; a training session is personal progress with no meaning detached from the person, and orphans would inflate completion counts for users who no longer exist._
 
 
-🟡 **Task 48** — Model: **SimulationSession** — `simulation_id` PK, `user_id` FK, `scenario_name`, `description`, `start_time`, `end_time`, `outcome`.
 
-🟡 **Task 49** — Model: **LearningProgress** — `progress_id` PK, `user_id` FK, `module_name`, `comp_status`, `completed_at`.
+✅ **Task 49** — Model: **LearningProgress** — `progress_id` PK, `user_id` FK, `module_name`, `comp_status`, `completed_at`. — **done**
+
+_`app/models/progress.py`. **All nine DB models are now complete.**_
+
+_**`(user_id, module_name)` is UNIQUE** — the schema's first composite unique constraint. Without it, re-opening a module appends a row and every completion count inflates: a progress bar reading over 100%._
+
+_**`completed_at` must agree with `comp_status`, both directions.** A completed module must carry a timestamp; an unfinished one must not. Otherwise a module could read `in_progress` while holding a completion date, which Task 63 would count as finished._
+
+_**⚠️ That constraint caught a real bug in my own code.** `mark_complete()` originally set the status first, then the timestamp. SQLAlchemy's **autoflush fires between two assignments**, so the row briefly hit the database as `completed` with a null timestamp and the flush failed. Fixed by setting the timestamp first. **Any code touching both fields must set `completed_at` before `comp_status`** — an ordering bug that would otherwise surface only intermittently, under load._
+
+_`not_started` is stored explicitly rather than as a missing row, so "has this user opened this module?" and "have they finished it?" stay separate queries._
+
+---
+
+### ✅ All nine DB models complete — Tasks 38–49
+
+162 tests · 8 migrations · 9 tables, all verified to tear down and rebuild cleanly. **Auth endpoints (Tasks 50–55) are next.**
 
 ### Auth Endpoints
 
