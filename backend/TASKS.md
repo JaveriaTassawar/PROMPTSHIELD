@@ -99,9 +99,39 @@ _**`expire_on_commit=False`** so an endpoint can return the object it just saved
 
 _**For Task 40:** Alembic autogenerate reads `Base.metadata`, so a model that is defined but never imported is **invisible to migrations**. `app/models/__init__.py` must import all five._
 
-🔵 **Task 40** — `alembic init`, wire it to the same `DATABASE_URL`, generate the first migration. — **next up**
+✅ **Task 40** — `alembic init`, wire it to the same `DATABASE_URL`, generate the first migration. — **done**
 
-🟡 **Task 41** — Model: **User** — `user_id` PK, `user_name`, `email` (unique, not null), `password` (hash), `role`, `created_at`.
+_`alembic.ini`, `alembic/env.py` rewritten from the template, baseline revision `c3a2d1223098`. **30 tests pass.** Verified: `upgrade head` applies, `downgrade base` rolls back, and re-upgrading works._
+
+_**The URL comes from `app.core.config`, not `alembic.ini`.** The generated template hardcodes `sqlalchemy.url`; that line is now **deliberately blank** and `env.py` sets it from `settings.database_url` at runtime._
+
+_Proven, not assumed — running with `DATABASE_URL=sqlite:///./proof_override.db` created **that** file rather than the default:_
+
+```
+DATABASE_URL=sqlite:///./proof_override.db alembic upgrade head
+  -> proof_override.db created, 12288 bytes
+```
+
+_**Why this matters:** with a real URL left in `alembic.ini`, a deployment pointing `DATABASE_URL` at Postgres would still migrate the local SQLite file. The app and its schema would be on **different databases** with nothing failing. It would also commit credentials to the repo._
+
+_**`render_as_batch` is on for SQLite.** SQLite cannot `ALTER` a column, so without batch mode the first migration in Tasks 41–45 that changes or drops one fails outright. Batch mode rebuilds the table instead. Harmless on Postgres._
+
+_**`compare_type=True` and `compare_server_default=True`** — both off by default, meaning a changed column type or server default is silently **not detected** by autogenerate._
+
+_**`app/models/__init__.py` created with the import requirement documented.** Autogenerate diffs against `Base.metadata`, and a model only registers there when its module is imported. A model missing from that file produces an **empty migration** — Alembic says "no changes detected", the table is absent, and the failure surfaces much later as `no such table`. `env.py` imports the package; Tasks 41–45 each add one line to it._
+
+_Test coverage targets exactly those silent failures: that `alembic.ini` has no hardcoded URL, that `env.py` overrides it, that `app.models` is imported, that batch mode is on, and that every migration has both `upgrade()` and `downgrade()`._
+
+**Commands:**
+```bash
+cd backend
+.venv\Scripts\python.exe -m alembic upgrade head      # apply
+.venv\Scripts\python.exe -m alembic current           # which revision
+.venv\Scripts\python.exe -m alembic revision --autogenerate -m "add user"
+.venv\Scripts\python.exe -m alembic downgrade -1      # roll back one
+```
+
+🔵 **Task 41** — Model: **User** — `user_id` PK, `user_name`, `email` (unique, not null), `password` (hash), `role`, `created_at`. — **next up**
 
 🟡 **Task 42** — Model: **Prompt** — `prompt_id` PK, `user_id` FK, `prompt_text`, `submission_time`, `status` (`pending` / `analyzed` / `blocked`).
 
