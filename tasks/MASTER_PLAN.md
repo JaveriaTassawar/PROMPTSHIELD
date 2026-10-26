@@ -339,11 +339,11 @@ _UI tasks (74-75, 77-79) can be built against a mocked JSON response shaped like
 
 🔵 Task 74 — Dashboard shell
 🟡 Task 75 — Prompt Analyzer UI
-🔴 Task 76 — Wire Analyze button — **needs Task 56 merged**
+✅ Task 76 — Wire Analyze button — **done** (one file changed; the hook was already isolated. **The mock fell through to "Direct Jailbreak" for any unrecognised prompt** — which is why innocent questions looked misclassified; the model was never involved. Real results now: adventure question → Safe 1.000, DAN → Direct Jailbreak 0.999. torch installed in the backend venv, so the suite runs **233 tests with none skipped**. A 503 reads as "model not running, prompt saved", not a failure)
 🔵 Task 77 — Detection Result — Safe state _(buildable with mock data any time — doesn't strictly need Task 75 first, but grouped here for flow)_
 🔵 Task 78 — Detection Result — Direct Jailbreak state (show sub-type from "Corrections" section 1 if available) _(buildable with mock data)_
 🔵 Task 79 — Detection Result — Indirect Injection state _(buildable with mock data)_
-🔴 Task 80 — Confirm all 3 states — **needs Task 76 wired for a real end-to-end check**, though the UI itself can be visually confirmed earlier with mock data
+🔵 Task 80 — Confirm all 3 states — **unblocked** (Task 76 is wired; Safe and Direct Jailbreak both confirmed against the real model. **Indirect Injection still needs checking** — and note ML Task 36 found the model scored 0/3 on hand-written indirect prompts, so pick a realistic one)
 
 ### Frontend (Rana) — Avatar Guidance & Simulation Lab
 
