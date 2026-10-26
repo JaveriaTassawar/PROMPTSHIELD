@@ -34,6 +34,22 @@ Every analysis response uses the taxonomy owned by [`../ml/TASKS.md`](../ml/TASK
 - `subtype` — one of the 8 sub-types, or `null` for Safe:
   - Direct Jailbreak → Policy Evasion · Multi-Turn Manipulation · Role Override · Persona Hijacking · System Prompt Overwrite
   - Indirect Injection → Document Embedding · Web Content Injection · Tool Output Injection
+- `severity` — one of **`Low`**, **`Medium`**, **`High`**, **`Critical`**
+
+### Severity vocabulary — pinned here (Task 43)
+
+The SRS and SDS never enumerate severity; the sample below shows only `"High"`. These four values were therefore **chosen at Task 43** and are now the contract, enforced by a CHECK constraint on `analysis_results.severity_level`.
+
+| Value | Meaning | Default for |
+|---|---|---|
+| `Low` | No threat detected | **Safe** |
+| `Medium` | Attack pattern present but low-confidence or low-impact | — |
+| `High` | Confident attack detection | **Direct Jailbreak**, **Indirect Injection** |
+| `Critical` | Reserved for Task 57 mitigation to escalate | — |
+
+**Frontend (Task 78) must use exactly these strings.** The frontend has not implemented severity yet — its code defers it to Tasks 78–82 and deliberately avoids inventing a vocabulary — so there is no existing conflict. Anything outside this set is rejected by the database, so a badge built against e.g. `"Severe"` would break on a real response.
+
+**To change the set:** edit `SEVERITY_LEVELS` in `backend/app/models/analysis.py`, generate a migration, and update this table. One place, three steps.
 
 Sample response shape (per SDS §6.5):
 ```json
@@ -190,7 +206,23 @@ _**`severity_level` had to be invented** — the plan shows only `"High"` in one
 
 _Also added `explanation` (nullable Text) for Task 57's mitigation note, and a composite index on `(prompt_type, analysed_at)` for the Tasks 60–63 "how many of each class over time" queries._
 
-🔵 **Task 44** — Model: **AttackSubtype** — `subtype_id` PK, `analysis_id` FK (nullable), `subtype_name` (**one of the 8 sub-types above**; null for Safe), `type_description`. — **next up**
+✅ **Task 44** — Model: **AttackSubtype** — `subtype_id` PK, `analysis_id` FK (nullable), `subtype_name` (**one of the 8 sub-types above**; null for Safe), `type_description`. — **done**
+
+_`app/models/subtype.py`, migration `926713d73a9c`. **101 tests pass** (22 new)._
+
+_**The 8 sub-type strings are duplicated from `ml/training/subtype_dataset.py`** with a drift test, same reasoning as Task 43. **The test caught a real failure on first run** — my regex assumed a tuple, the ML file uses a list. Names matched; the test was wrong. Fixed to accept either container, and verified it still fails on a renamed sub-type._
+
+_**`SUBTYPE_PARENT` maps each sub-type to its 3-class label**, with `is_valid_for()` for Task 56 to call before storing. A plain CHECK on `subtype_name` alone would happily accept **"Policy Evasion" under an Indirect Injection analysis**, which is nonsense. Not enforced in the database because the parent class lives on another table and a cross-table CHECK is not portable — enforced at the write path instead._
+
+_**⚠️ `UNRELIABLE_SUBTYPES` encodes the Role Override finding in code, not just prose.** ML Task 34 measured the sub-type head at **0.00 F1 on Role Override — never predicted, 0 of 18**, with **14 of those 18 landing as Policy Evasion**. So a stored `"Policy Evasion"` may in fact be Role Override._
+
+_`is_reliable` and `reliability_note` expose that on the model, so **Task 56 and the UI can qualify a sub-type instead of presenting it with the same authority as the 3-class label**. See `ml/MODEL_CARD.md` §19.7._
+
+_**`confidence` is a separate nullable column**, not reused from Task 43. The sub-type head is a *different model* with its own softmax; storing both in one column would conflate unrelated numbers. Nullable because the sub-type model is optional — `ml/inference/classifier.py` returns `subtype=None` when it is not configured._
+
+_`analysis_id` stays nullable per the plan (a sub-type may be seeded for a Task 62 simulation before any analysis exists) but is **unique**, so one analysis cannot accumulate several rows and make the dashboard count one attack as many._
+
+🔵 **Task 45** — Model: **MitigationAction** — `mitigation_id` PK, `analysis_id` FK, `action_type` (warning / blocking / rewriting), `action_description`, `mitigated_prompt`, `action_time`. — **next up**
 
 🟡 **Task 44** — Model: **AttackSubtype** — `subtype_id` PK, `analysis_id` FK (nullable), `subtype_name` (**one of the 8 sub-types above**; null for Safe), `type_description`.
 

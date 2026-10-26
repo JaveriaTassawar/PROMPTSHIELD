@@ -125,6 +125,17 @@ class AnalysisResult(Base):
         "Prompt", back_populates="analysis"
     )
 
+    # The 8-class sub-type prediction (Task 44). Null for Safe prompts, and
+    # null whenever the optional sub-type model is not configured -- see
+    # ml/inference/classifier.py, which returns subtype=None rather than
+    # failing in that case.
+    subtype: Mapped["AttackSubtype | None"] = relationship(  # noqa: F821
+        "AttackSubtype",
+        back_populates="analysis",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
     __table_args__ = (
         CheckConstraint(
             "prompt_type IN ('" + "', '".join(PROMPT_TYPES) + "')",

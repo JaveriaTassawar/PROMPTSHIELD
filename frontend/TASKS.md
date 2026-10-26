@@ -46,6 +46,12 @@ That means Tasks 67–70, 74–75, 77–79, 81, 83–84, 86–88, 90, 92 — the
 | Direct Jailbreak | Policy Evasion · Multi-Turn Manipulation · Role Override · Persona Hijacking · System Prompt Overwrite |
 | Indirect Injection | Document Embedding · Web Content Injection · Tool Output Injection |
 
+`severity` is one of **`Low`**, **`Medium`**, **`High`**, **`Critical`** — pinned at Task 43 and enforced by a CHECK constraint in the database. The SRS never enumerated these, so they were chosen backend-side; the full table and rationale are in [`../backend/TASKS.md`](../backend/TASKS.md#severity-vocabulary--pinned-here-task-43).
+
+**Use these exact strings in Task 78's severity badge.** Anything else (`"Severe"`, `"Warning"`, lowercase) will never arrive from the API, because the database rejects it — so a badge keyed on a different value silently renders nothing.
+
+Defaults: `Safe` → `Low`; both attack classes → `High`. `Critical` is reserved for Task 57 mitigation to escalate.
+
 **Design for all 8 sub-type labels**, not just the 3 classes — the Detection Result and Analytics screens both display them.
 
 ### Content warning
