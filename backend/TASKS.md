@@ -319,9 +319,38 @@ _`not_started` is stored explicitly rather than as a missing row, so "has this u
 
 ### Auth Endpoints
 
-🔴 **Task 50** — `POST /api/register` — hash the password with bcrypt, never store plaintext — **needs Task 41 merged**. Returns 201.
+✅ **Task 50** — `POST /api/register` — hash the password with bcrypt, never store plaintext. Returns 201. — **done**
 
-🟡 **Task 51** — Reject duplicate email with **409** (or 400 — pick one and keep it consistent; document it).
+_`app/routers/auth.py`, `app/schemas/auth.py`, `app/core/security.py`. **179 tests pass** (17 new). Verified live, not just in tests — see the session below._
+
+_**⚠️ DEPENDENCY SWAP: `bcrypt` directly, not `passlib`.** The plan named passlib and it was tried first. **It does not work**: passlib 1.7.4 reads `bcrypt.__about__.__version__`, which bcrypt 5.0 removed, so every hash call raises before producing anything. passlib's last release was 2020._
+
+_Using bcrypt directly removes an unmaintained package from the auth path and costs about ten lines. **The stored format is identical** — a standard `$2b$` hash — so nothing downstream changes and passlib could be reintroduced later without a migration. passlib has been uninstalled and `requirements.txt` updated._
+
+_**bcrypt's 72-byte limit is rejected, not truncated.** bcrypt ignores input past 72 **bytes**, so two long passwords sharing their first 72 bytes hash identically and **each would unlock the other's account**. Over-long input returns 422 rather than being silently shortened. Bytes, not characters — a non-ASCII password hits the limit sooner than its length suggests._
+
+_**The response lists its fields explicitly** rather than serialising the ORM object. If it did the latter, any sensitive column added to `User` later would leak through this endpoint with no code change and nothing failing. A test asserts `password_hash` is absent._
+
+_**`verify_password()` never raises.** A malformed or legacy hash returns `False`, not a 500 — a failed login is the right answer either way, and an exception would tell a prober that this particular account is unusual._
+
+_Live check:_
+```
+POST /api/register  {"email": "Jawaria@UCP.edu.pk", ...}   -> 201
+  stored email: jawaria@ucp.edu.pk        (case-folded)
+  stored hash : $2b$12$drrmBcsEQ8cs9UAyH/Hq7u...
+
+POST /api/register  {"email": "jawaria@ucp.edu.pk", ...}   -> 409
+```
+
+_**⚠️ FOR TASK 55:** the endpoint honours the `role` field the frontend form posts, so **anyone can currently register as `admin`**. Harmless while no admin functionality exists, but Task 55 adds role-gated endpoints and **must close this** — either drop `role` from registration and default everyone to `student`, or require an existing admin to grant it._
+
+✅ **Task 51** — Reject duplicate email with **409** — **done**
+
+_**409 Conflict, not 400.** The request was well-formed; it failed because of existing state. 400 would be indistinguishable from a validation error, and the frontend needs to tell those apart to show "that email is taken" rather than "check your details". Documented in the OpenAPI responses so Rana can code against it from `/docs`._
+
+_**Checked twice: a pre-check and a caught `IntegrityError`.** The pre-check gives the clean message; the exception handler catches the race where two requests with the same email both pass the check before either commits. Without it the loser gets a 500 — rare on SQLite, entirely real on Postgres under load._
+
+_Duplicate detection is case-insensitive, because `normalise_email()` runs in the schema validator before the lookup._
 
 🟡 **Task 52** — `POST /api/login` — verify the hash, return a JWT. Token carries `user_id` and `role`.
 

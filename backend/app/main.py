@@ -22,7 +22,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
-from app.routers import health
+from app.routers import auth, health
 
 API_TITLE = "PromptShield API"
 API_VERSION = "0.1.0"
@@ -53,7 +53,11 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Routers go INSIDE the factory. A route registered after create_app()
+    # returns attaches only to the module-level instance and 404s in any
+    # app a test builds -- see the Task 38 note below.
     app.include_router(health.router)
+    app.include_router(auth.router)
 
     # Registered inside the factory, not on the module-level `app` below.
     # A decorator applied after create_app() returns would attach only to

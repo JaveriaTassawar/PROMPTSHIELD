@@ -296,9 +296,9 @@ _Independent track — can start immediately, in parallel with ML. Branch prefix
 ### Backend (Jawaria) — Auth Endpoints
 _Depends only on Task 41 (User model), not on ML._
 
-🔵 Task 50 — POST /api/register (+hash password) — **unblocked** (Task 41 done; `User` exists. Two rules from Task 41: hash into `password_hash`, and call `normalise_email()` on **register AND login** — normalising only on write locks the user out)
-🟡 Task 51 — Reject duplicate email
-🟡 Task 52 — POST /api/login (JWT)
+✅ Task 50 — POST /api/register (+hash password) — **done** (179 tests pass; verified live. **⚠️ Swapped passlib for bcrypt directly** — passlib 1.7.4 reads `bcrypt.__about__` which bcrypt 5.0 removed, so every hash call raised; passlib last released 2020. Same `$2b$` stored format, no migration needed. **bcrypt`s 72-byte limit is rejected not truncated** — two long passwords sharing a prefix would otherwise unlock each other. Response lists fields explicitly so a column added later cannot leak. **⚠️ Task 55 must close this: anyone can currently register as `admin`**)
+✅ Task 51 — Reject duplicate email with **409** — **done** (409 not 400: the request was well-formed and failed on existing state, and the frontend must distinguish "email taken" from "check your details". Pre-check **and** a caught IntegrityError, so the two-request race does not 500 the loser — rare on SQLite, real on Postgres. Case-insensitive via `normalise_email()`)
+🔵 Task 52 — POST /api/login (JWT)
 🟡 Task 53 — Reject wrong password
 🟡 Task 54 — GET /api/profile (JWT-protected)
 🟡 Task 55 — Role field (student/developer/researcher/admin)
