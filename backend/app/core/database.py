@@ -50,7 +50,8 @@ from __future__ import annotations
 
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import get_settings
@@ -93,6 +94,29 @@ engine = create_engine(
     echo=False,
     **_engine_kwargs(settings.database_url),
 )
+
+@event.listens_for(Engine, "connect")
+def _enable_sqlite_foreign_keys(dbapi_connection, connection_record) -> None:
+    """Turn on foreign key enforcement for SQLite connections.
+
+    SQLite ships with `PRAGMA foreign_keys = OFF`, and the setting is
+    per-connection rather than per-database. Without this every FK declared
+    from Task 42 onward is decorative: a prompt row referencing a user that
+    does not exist inserts happily, and `ondelete` rules never fire.
+
+    The damage is that it works locally and fails in production -- Postgres
+    enforces FKs unconditionally, so orphan rows created during development
+    would hit a constraint violation on deploy, or worse, pass silently and
+    leave the analytics in Tasks 60-63 joining against missing users.
+
+    Guarded by a driver check rather than the URL, because this listener is
+    registered on the Engine class and fires for Postgres connections too.
+    """
+    if type(dbapi_connection).__module__.startswith("sqlite3"):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
 
 SessionLocal = sessionmaker(
     bind=engine,
