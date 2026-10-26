@@ -73,13 +73,83 @@ _`/health` reports `environment`, `database`, `model_configured` and `subtype_mo
 
 _Verified gitignored: `backend/.venv/`, `backend/promptshield.db`, `__pycache__/`, `.env`. Exactly 10 source files stage._
 
-🔵 **Task 39** — SQLAlchemy engine + session (SQLite), with a `get_db()` dependency. — **next up**
+✅ **Task 39** — SQLAlchemy engine + session (SQLite), with a `get_db()` dependency. — **done**
 
-🟡 **Task 40** — `alembic init`, wire it to the same `DATABASE_URL`, generate the first migration.
+_`app/core/database.py` — engine, `SessionLocal`, `Base`, `get_db()`. **21 tests pass** (10 from Task 38 + 11 new). Self-check: `python -m app.core.database`._
 
-🟡 **Task 41** — Model: **User** — `user_id` PK, `user_name`, `email` (unique, not null), `password` (hash), `role`, `created_at`.
+_**The session closes in a `finally`, not after the `yield`.** Verified through FastAPI, not just in isolation — an endpoint that raises returns 500, and **the next request still succeeds**:_
 
-🟡 **Task 42** — Model: **Prompt** — `prompt_id` PK, `user_id` FK, `prompt_text`, `submission_time`, `status` (`pending` / `analyzed` / `blocked`).
+```
+GET /dbcheck -> 200 {'one': 1}
+GET /dbfail  -> 500          (session still closed)
+GET /dbcheck -> 200 {'one': 1}   <- pool healthy after the error
+```
+
+_With a trailing `db.close()` instead, that third request would eventually hang rather than error, once the pool drained. **That failure looks like a network problem and is miserable to trace**, so it is worth the test._
+
+_**`get_db()` does not commit.** Each endpoint commits its own unit of work — a dependency that auto-committed would persist half of a failed operation._
+
+_**Driver args are computed, not hardcoded.** SQLite needs `check_same_thread=False` because FastAPI runs sync endpoints in a threadpool and would otherwise raise *"SQLite objects created in a thread can only be used in that same thread"*. **That same argument is a `TypeError` on psycopg2**, so `_connect_args()` returns it only for SQLite — one module serves local SQLite and deployed Postgres with no edit. Two tests pin both directions._
+
+_**`pool_pre_ping` is on for Postgres only** — a pooled connection dropped by the server while idle would otherwise fail one request before being replaced. Pointless against a local file._
+
+_**`Base` is a SQLAlchemy 2.x `DeclarativeBase`**, not the legacy `declarative_base()` factory — SQLAlchemy 2.1.5 is installed and the models in Tasks 41–45 will use typed `Mapped[...]` annotations, which the old idiom mixes badly with._
+
+_**`expire_on_commit=False`** so an endpoint can return the object it just saved without a second query against an already-closed session._
+
+_**For Task 40:** Alembic autogenerate reads `Base.metadata`, so a model that is defined but never imported is **invisible to migrations**. `app/models/__init__.py` must import all five._
+
+✅ **Task 40** — `alembic init`, wire it to the same `DATABASE_URL`, generate the first migration. — **done**
+
+_`alembic.ini`, `alembic/env.py` rewritten from the template, baseline revision `c3a2d1223098`. **30 tests pass.** Verified: `upgrade head` applies, `downgrade base` rolls back, and re-upgrading works._
+
+_**The URL comes from `app.core.config`, not `alembic.ini`.** The generated template hardcodes `sqlalchemy.url`; that line is now **deliberately blank** and `env.py` sets it from `settings.database_url` at runtime._
+
+_Proven, not assumed — running with `DATABASE_URL=sqlite:///./proof_override.db` created **that** file rather than the default:_
+
+```
+DATABASE_URL=sqlite:///./proof_override.db alembic upgrade head
+  -> proof_override.db created, 12288 bytes
+```
+
+_**Why this matters:** with a real URL left in `alembic.ini`, a deployment pointing `DATABASE_URL` at Postgres would still migrate the local SQLite file. The app and its schema would be on **different databases** with nothing failing. It would also commit credentials to the repo._
+
+_**`render_as_batch` is on for SQLite.** SQLite cannot `ALTER` a column, so without batch mode the first migration in Tasks 41–45 that changes or drops one fails outright. Batch mode rebuilds the table instead. Harmless on Postgres._
+
+_**`compare_type=True` and `compare_server_default=True`** — both off by default, meaning a changed column type or server default is silently **not detected** by autogenerate._
+
+_**`app/models/__init__.py` created with the import requirement documented.** Autogenerate diffs against `Base.metadata`, and a model only registers there when its module is imported. A model missing from that file produces an **empty migration** — Alembic says "no changes detected", the table is absent, and the failure surfaces much later as `no such table`. `env.py` imports the package; Tasks 41–45 each add one line to it._
+
+_Test coverage targets exactly those silent failures: that `alembic.ini` has no hardcoded URL, that `env.py` overrides it, that `app.models` is imported, that batch mode is on, and that every migration has both `upgrade()` and `downgrade()`._
+
+**Commands:**
+```bash
+cd backend
+.venv\Scripts\python.exe -m alembic upgrade head      # apply
+.venv\Scripts\python.exe -m alembic current           # which revision
+.venv\Scripts\python.exe -m alembic revision --autogenerate -m "add user"
+.venv\Scripts\python.exe -m alembic downgrade -1      # roll back one
+```
+
+✅ **Task 41** — Model: **User** — `user_id` PK, `user_name`, `email` (unique, not null), `password` (hash), `role`, `created_at`. — **done**
+
+_`app/models/user.py`, migration `49db872b27a3`. **45 tests pass** (14 new). Upgrade and downgrade both verified — the table and its two indexes drop and recreate cleanly._
+
+_**The column is `password_hash`, not `password` — a deliberate change from the plan's wording.** Naming it `password` invites `User(password=payload.password)` at the call site in Task 50, which stores plaintext and passes every test, because nothing about a string column objects. `password_hash=` reads visibly wrong when handed a raw password. **For a project whose subject is security, a plaintext password column found by an examiner would undercut the whole thing.** Width is 60, bcrypt's fixed output._
+
+_**Email is case-folded via `normalise_email()`.** `Jawaria@ucp.edu.pk` and `jawaria@ucp.edu.pk` are one mailbox, but a plain UNIQUE index treats them as two accounts — a duplicate-registration hole, plus a login that only works with the original casing. **Task 50 must call it on register AND login**; normalising only on write still locks the user out._
+
+_**Role is CHECK-constrained** to `student` / `developer` / `researcher` / `admin`, the values Task 55 gates on. A typo like `"admim"` would otherwise write fine and silently strip that user's access with no error anywhere. A native ENUM would be stricter but needs a migration per value and SQLite has no real enum type, so CHECK is the portable choice. Tests cover every valid role plus a rejected invalid one._
+
+_**`created_at` uses `server_default=func.now()`**, not a Python default — so the timestamp comes from the database for every row however it was inserted, including seed scripts and manual SQL, rather than from whichever app server happened to handle the request._
+
+_**Added `is_active`** (not in the plan's field list): lets an admin disable an account without deleting it, which matters because the analytics in Tasks 60–63 still need that user's prompt history._
+
+_`__repr__` omits the hash — `repr()` lands in logs and tracebacks._
+
+_**The Task 40 import trap was handled:** `app/models/__init__.py` now imports `User`, and autogenerate correctly detected `users` plus both indexes. A test asserts the registration so a future model cannot silently miss it._
+
+🔵 **Task 42** — Model: **Prompt** — `prompt_id` PK, `user_id` FK, `prompt_text`, `submission_time`, `status` (`pending` / `analyzed` / `blocked`). — **next up**
 
 🟡 **Task 43** — Model: **AnalysisResult** — `analysis_id` PK, `prompt_id` FK, `detection_result`, `prompt_type` (**stores the 3-class label**), `severity_level`, `confidence_score`, `analysed_at`.
 
