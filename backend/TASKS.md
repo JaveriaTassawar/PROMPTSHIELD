@@ -149,7 +149,30 @@ _`__repr__` omits the hash — `repr()` lands in logs and tracebacks._
 
 _**The Task 40 import trap was handled:** `app/models/__init__.py` now imports `User`, and autogenerate correctly detected `users` plus both indexes. A test asserts the registration so a future model cannot silently miss it._
 
-🔵 **Task 42** — Model: **Prompt** — `prompt_id` PK, `user_id` FK, `prompt_text`, `submission_time`, `status` (`pending` / `analyzed` / `blocked`). — **next up**
+✅ **Task 42** — Model: **Prompt** — `prompt_id` PK, `user_id` FK, `prompt_text`, `submission_time`, `status` (`pending` / `analyzed` / `blocked`). — **done**
+
+_`app/models/prompt.py`, migration `2ec02dd6e931`. **59 tests pass** (14 new)._
+
+_**⚠️ FOUND AND FIXED: SQLite was silently ignoring every foreign key.** SQLite ships with `PRAGMA foreign_keys = OFF`, and the setting is **per-connection**. Without it, every FK in this schema — this one and Tasks 43–45 — is decorative. Demonstrated directly:_
+
+```
+WITHOUT the pragma:  INSERT prompts(user_id=99999)  ->  row inserted, FK ignored
+WITH    the pragma:  INSERT prompts(user_id=99999)  ->  IntegrityError
+```
+
+_**Why this would have been nasty:** it works locally and fails on deploy. Postgres enforces FKs unconditionally, so orphan rows created during development would hit constraint violations on migration — or pass unnoticed and leave the Tasks 60–63 analytics joining against users that do not exist. Fixed with a `connect` event listener in `app/core/database.py`, guarded by a driver check so it does not fire for Postgres. A test asserts `PRAGMA foreign_keys == 1`._
+
+_**`ondelete="SET NULL"`, not CASCADE, and `user_id` is nullable.** Deleting a user must not delete their prompts: the analytics aggregate over historical prompts, and CASCADE would silently rewrite past totals the moment an account was removed. SET NULL keeps the row and anonymises it. Task 41's `is_active` remains the preferred path — deactivate rather than delete._
+
+_**`prompt_text` is `Text`, not `String(n)`.** The ML work measured real attacks at up to **3,923 tokens**, with Persona Hijacking averaging over a thousand. A VARCHAR cap would truncate exactly the long multi-turn and persona prompts the classifier is already weakest on — and MySQL truncates silently. No length cap here on purpose: **Task 56 should reject oversized input with a 422** before it reaches the database, where it would be a 500 instead._
+
+_**`status` CHECK-constrained** to `pending` / `analyzed` / `blocked`. A typo (`"analysed"` — the British spelling is an easy slip) leaves a prompt in a state no query matches, invisible until a dashboard count looks wrong. Tested, including that exact misspelling._
+
+_**Composite index `(user_id, submission_time)`** — Tasks 58 and 60 both ask "this user's prompts, newest first", which two single-column indexes do not serve._
+
+_`__repr__` truncates the text to 40 chars: prompt content is user data and may be an attack payload, and `repr()` lands in logs._
+
+🔵 **Task 43** — Model: **AnalysisResult** — see below. — **next up**
 
 🟡 **Task 43** — Model: **AnalysisResult** — `analysis_id` PK, `prompt_id` FK, `detection_result`, `prompt_type` (**stores the 3-class label**), `severity_level`, `confidence_score`, `analysed_at`.
 

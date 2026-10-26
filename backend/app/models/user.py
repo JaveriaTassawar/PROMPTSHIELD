@@ -46,10 +46,15 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy import CheckConstraint, DateTime, Index, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.prompt import Prompt
 
 # Pinned by Task 55. Kept as a module constant so the dependency there and
 # the schema here cannot drift apart.
@@ -102,6 +107,13 @@ class User(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),  # see decision 4
+    )
+
+    # No cascade: deleting a user anonymises their prompts (SET NULL on the
+    # FK) rather than removing them, so the Tasks 60-63 analytics keep their
+    # historical totals. See the Prompt model, decision 2.
+    prompts: Mapped[list["Prompt"]] = relationship(
+        "Prompt", back_populates="user"
     )
 
     __table_args__ = (
