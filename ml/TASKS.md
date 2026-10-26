@@ -994,13 +994,17 @@ _**This does not affect the project's headline claim.** Task 34 is a stretch goa
 
 ### Inference Wrapper
 
-#### 🔵 Task 35 — `inference/classifier.py` — **next up** (unblocked)
+#### ✅ Task 35 — `inference/classifier.py` — **done** (Faiqa)
 
-> **Task 33 is merged, so this is no longer blocked.** The Drive checkpoint is self-contained — tokenizer included — so `load_model()` does not have to guess which tokenizer produced the weights.
->
-> **Task 34 is done too**, so `classify()` can return a sub-type alongside the 3-class label. If it does, **Role Override must carry a caveat**: the sub-type head never predicts it (0 of 18), so a returned sub-type of "Policy Evasion" may in fact be Role Override. Never present a sub-type with the same confidence as the 3-class label.
->
-> Remember 35.1's point about loading at module level — Task 37 requires **<200 ms** per call, and reloading a 268 MB checkpoint per request would miss that by orders of magnitude.
+_`classify(text)` returns `{label, confidence, subtype, subtype_confidence}` — see [`TASK35_RESULTS.md`](TASK35_RESULTS.md). Models load lazily and cache in module globals, which is what makes Task 37's latency target reachable._
+
+_**Model paths come from the environment** (`PROMPTSHIELD_MODEL_PATH`, `PROMPTSHIELD_SUBTYPE_MODEL_PATH`), not hardcoded — so the 268 MB checkpoint stays outside the repo and the backend configures its own path._
+
+_**Bug found in review and fixed.** `classify()` raised `RuntimeError` on every attack prompt when the optional sub-type model was unset — safe prompts worked, attacks crashed. That is the worst possible shape for the failure: it breaks exactly the inputs the product exists to catch, and would have surfaced as backend 500s at Task 51. Now returns `subtype: None` and preserves the primary detection. `subtype_model_available()` lets a caller check up front._
+
+_**The fix nearly got lost, which is worth recording.** Faiqa fixed it on the Task 35 branch (`6355cee`), but the Task 36 and 37 branches were cut **before** that commit, so both carried the pre-fix file. Merging them in sequence would have silently reverted the fix onto `main` with nothing failing loudly. Resolved by cherry-picking her fix onto the tip of the stack and merging that single branch (PR #21) instead of the three divergent ones. **Lesson for the backend track: branch from current `main`, not from a sibling feature branch.**_
+
+**Role Override caveat still applies** — the sub-type head never predicts it (0 of 18), so a returned sub-type of "Policy Evasion" may in fact be Role Override. Never present a sub-type with the same confidence as the 3-class label.
 
 **35.1** Write `load_model()` — loads the checkpoint once, at module level, not per call.
 **TEST:** import it and print the model type
@@ -1021,7 +1025,23 @@ _**This does not affect the project's headline claim.** Task 34 is a stretch goa
 
 ---
 
-#### 🟡 Task 36 — Test on real examples
+#### ✅ Task 36 — Test on real examples — **done** (Faiqa)
+
+_[`TASK36_RESULTS.md`](TASK36_RESULTS.md). **3 / 3 correct** on held-out examples, one per class, with the sub-type also right on both attacks._
+
+_**Then she went further than the task asked, and found the project's most important limitation.** She hand-wrote three *new* Indirect Injection prompts — not drawn from any dataset — and tested those:_
+
+| Expected | Got | |
+|---|---|---|
+| Indirect Injection | **Safe** | ❌ attack missed entirely |
+| Indirect Injection | Direct Jailbreak | ❌ |
+| Indirect Injection | Direct Jailbreak | ❌ |
+
+_**0 / 3.** The two Direct Jailbreak calls mean the model saw an attack but missed the external-content framing that makes it *indirect*. The **Safe** call is the serious one — a real attack classified as harmless._
+
+_Written up as `MODEL_CARD.md` §19.8. **This is the honest counterweight to the 99.11% headline** and belongs in the viva answer, stated first rather than discovered by an examiner. See the note under Task 31 on why the test set flatters the number._
+
+
 
 **36.1** Pick one prompt per class from the **real-world** test set (not the synthetic CSV).
 **EXPECT:** three prompts, hand-checked as safe to display
@@ -1034,7 +1054,20 @@ _**This does not affect the project's headline claim.** Task 34 is a stretch goa
 
 ---
 
-#### 🟡 Task 37 — Confirm the latency target
+#### ✅ Task 37 — Confirm the latency target — **done** (Faiqa)
+
+_[`TASK37_RESULTS.md`](TASK37_RESULTS.md). **PASS, with ~20× headroom** against the SRS §4.1 budget of <200 ms._
+
+| Path | Mean | Median | Max |
+|---|---:|---:|---:|
+| Safe (primary only) | **4.69 ms** | 4.51 ms | 10.24 ms |
+| Attack (primary + sub-type) | **10.88 ms** | 9.20 ms | 23.77 ms |
+
+_Safe prompts skip the sub-type model entirely, which is why they run at roughly half the cost — the conditional design in Task 35 paying off rather than an accident._
+
+_Independently reproduced during the Task 35 bug check: 15–18 ms per call on this CPU once the model is cached. **The caching is what the target depends on** — the first call includes a ~1.2 s model load, so a backend that reloaded per request would miss 200 ms by a factor of six._
+
+
 
 **37.1** Time a single `classify()` call.
 ```python
