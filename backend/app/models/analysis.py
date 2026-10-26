@@ -146,6 +146,17 @@ class AnalysisResult(Base):
         order_by="MitigationAction.action_time",
     )
 
+    # The API's `safePromptSuggestion` field reads from HERE, not from a
+    # rewriting MitigationAction. See app/models/suggestion.py for why the
+    # two overlap and which is which: mitigations are an audit log of what
+    # the system did; this is the teaching advice shown to the user.
+    suggestion: Mapped["SafeSuggestion | None"] = relationship(  # noqa: F821
+        "SafeSuggestion",
+        back_populates="analysis",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
     __table_args__ = (
         CheckConstraint(
             "prompt_type IN ('" + "', '".join(PROMPT_TYPES) + "')",

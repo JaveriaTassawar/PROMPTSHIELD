@@ -26,6 +26,7 @@ from app.models.analysis import AnalysisResult  # noqa: F401
 from app.models.mitigation import MitigationAction  # noqa: F401
 from app.models.prompt import Prompt  # noqa: F401
 from app.models.subtype import AttackSubtype  # noqa: F401
+from app.models.suggestion import SafeSuggestion  # noqa: F401
 from app.models.user import User  # noqa: F401
 
 __all__ = [
@@ -33,5 +34,6 @@ __all__ = [
     "AttackSubtype",
     "MitigationAction",
     "Prompt",
+    "SafeSuggestion",
     "User",
 ]

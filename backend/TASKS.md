@@ -248,7 +248,26 @@ _`mitigated_prompt` is `Text` and nullable: a rewrite is as long as the original
 
 
 
-🟡 **Task 46** — Model: **SafeSuggestion** — `suggestion_id` PK, `analysis_id` FK, `suggested_prompt`, `suggestion_reason`, `generated_at`.
+✅ **Task 46** — Model: **SafeSuggestion** — `suggestion_id` PK, `analysis_id` FK, `suggested_prompt`, `suggestion_reason`, `generated_at`. — **done**
+
+_`app/models/suggestion.py`, migration `d08f96bbb4b6`. **126 tests pass** (11 new)._
+
+_**⚠️ OVERLAP WITH TASK 45 — resolved here, read before writing Task 56 or 57.** `MitigationAction` with `action_type='rewriting'` also stores a rewritten prompt. Two tables can hold "a safer version of this prompt", and without a rule Task 56 would have two places to read `safePromptSuggestion` from and could pick differently in different endpoints._
+
+| Table | Holds | Answers |
+|---|---|---|
+| `MitigationAction.mitigated_prompt` | what the system **did** | "what action was taken, and when" — audit log, append-only, several per analysis |
+| `SafeSuggestion.suggested_prompt` | what the user **should have written** | "show me a better prompt" — teaching material, one per analysis |
+
+_**The API's `safePromptSuggestion` field reads from `SafeSuggestion`.** A `rewriting` MitigationAction is written alongside when the system actually substituted text, and the two often agree — but one is a log entry and the other is advice. A test stores both and asserts they stay independently reachable._
+
+_**`suggestion_reason` is NOT NULL.** The project exists to teach secure prompting; a suggestion with no explanation of *why* it is safer is a rewrite, not a lesson, and the Task 47 avatar would have nothing to narrate._
+
+_`analysis_id` is unique — regenerating should update the row, not append a second one the API has to choose between._
+
+_No CHECK compares the suggestion to the original (the original is on another table and cross-table CHECKs are not portable). **Task 57 should refuse to store a suggestion identical to the input.**_
+
+🔵 **Task 47** — Model: **AvatarGuidance** — `guidance_id` PK, `analysis_id` FK, `message_text`, `explanation`, `displayed_at`. — **next up**
 
 🟡 **Task 47** — Model: **AvatarGuidance** — `guidance_id` PK, `analysis_id` FK, `message_text`, `explanation`, `displayed_at`.
 
