@@ -172,9 +172,25 @@ _**Composite index `(user_id, submission_time)`** — Tasks 58 and 60 both ask "
 
 _`__repr__` truncates the text to 40 chars: prompt content is user data and may be an attack payload, and `repr()` lands in logs._
 
-🔵 **Task 43** — Model: **AnalysisResult** — see below. — **next up**
+✅ **Task 43** — Model: **AnalysisResult** — `analysis_id` PK, `prompt_id` FK, `detection_result`, `prompt_type` (**stores the 3-class label**), `severity_level`, `confidence_score`, `analysed_at`. — **done**
 
-🟡 **Task 43** — Model: **AnalysisResult** — `analysis_id` PK, `prompt_id` FK, `detection_result`, `prompt_type` (**stores the 3-class label**), `severity_level`, `confidence_score`, `analysed_at`.
+_`app/models/analysis.py`, migration `35be3efd8cb0`. **79 tests pass** (20 new). This is where the backend meets the ML track._
+
+_**The 3-class labels are duplicated from `ml/training/dataset.py`, with a test guarding the drift.** Importing `LABEL2ID` directly would make the API depend on torch and pandas — a 30 MB service becoming a 2 GB one, with every endpoint waiting on a model import. So the three strings are restated, and `test_prompt_types_match_the_ml_label_set` parses the ML file and fails if the sets diverge in **either** direction. Verified it has teeth: adding a fourth label to the backend makes it fail._
+
+_**Without that guard the failure mode is ugly** — the classifier returns a label the CHECK constraint rejects, and every attack analysis 500s at runtime while Safe prompts keep working._
+
+_**`confidence_score` is CHECK-constrained to 0..1.** The classifier returns a softmax probability. Writing `94.0` where `0.94` belongs would not fail anywhere — it would silently make every confidence display and every analytics average wrong, in a way that looks plausible until someone checks. Both boundaries tested; `1.0` is allowed because the model genuinely returns it on obvious attacks._
+
+_**`prompt_id` is UNIQUE — one analysis per prompt.** Without it, re-running analysis appends a second row and the dashboard counts that prompt twice. Re-analysis must update the existing row, and the constraint forces that to be a deliberate choice._
+
+_**This FK CASCADES, unlike Prompt → User.** The asymmetry is intentional: a prompt survives its user (the history matters), but an analysis without its prompt has no text to display and nothing to explain. Both directions are tested._
+
+_**`severity_level` had to be invented** — the plan shows only `"High"` in one sample response and never enumerates the set. Defined as `Low` / `Medium` / `High` / `Critical` with `DEFAULT_SEVERITY_BY_TYPE` mapping Safe→Low and both attack classes→High. **If the SRS or frontend pins a different vocabulary, this constraint is the one place to change.**_
+
+_Also added `explanation` (nullable Text) for Task 57's mitigation note, and a composite index on `(prompt_type, analysed_at)` for the Tasks 60–63 "how many of each class over time" queries._
+
+🔵 **Task 44** — Model: **AttackSubtype** — `subtype_id` PK, `analysis_id` FK (nullable), `subtype_name` (**one of the 8 sub-types above**; null for Safe), `type_description`. — **next up**
 
 🟡 **Task 44** — Model: **AttackSubtype** — `subtype_id` PK, `analysis_id` FK (nullable), `subtype_name` (**one of the 8 sub-types above**; null for Safe), `type_description`.
 

@@ -22,7 +22,8 @@ below as Tasks 41-45 land:
 from __future__ import annotations
 
 # Re-exported so `import app.models` registers everything on Base.metadata.
+from app.models.analysis import AnalysisResult  # noqa: F401
 from app.models.prompt import Prompt  # noqa: F401
 from app.models.user import User  # noqa: F401
 
-__all__ = ["Prompt", "User"]
+__all__ = ["AnalysisResult", "Prompt", "User"]
