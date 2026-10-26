@@ -287,8 +287,8 @@ _Independent track — can start immediately, in parallel with ML. Branch prefix
 ✅ Task 42 — Model: Prompt — **done** (59 tests pass, migration `2ec02dd6e931`. **⚠️ Found that SQLite was silently ignoring every foreign key** — it ships with `PRAGMA foreign_keys=OFF` per connection, so orphan rows inserted cleanly; proven and fixed with a connect listener in `database.py`. Would have worked locally and broken on Postgres, which enforces FKs unconditionally. `ondelete=SET NULL` not CASCADE, so deleting a user anonymises prompts rather than destroying the history Tasks 60–63 aggregate. `prompt_text` is `Text` — real attacks reach 3,923 tokens and a VARCHAR cap would truncate the long persona/multi-turn prompts. `status` CHECK-constrained)
 ✅ Task 43 — Model: AnalysisResult — **done** (79 tests pass, migration `35be3efd8cb0`. **The 3-class labels are duplicated from the ML package rather than imported** — importing would pull torch into the API process — **with a test that parses `ml/training/dataset.py` and fails on drift in either direction**; verified it catches an added label. Without it the classifier could return a label the CHECK rejects and every attack analysis would 500. `confidence_score` constrained to 0..1 so a percentage written for a probability cannot silently skew every average. `prompt_id` UNIQUE — one analysis per prompt, else the dashboard double-counts. FK CASCADEs here, unlike Prompt→User, because an analysis without its prompt is meaningless. **`severity_level` values had to be invented — the plan only ever shows "High"**)
 ✅ Task 44 — Model: AttackSubtype — **done** (101 tests pass, migration `926713d73a9c`. 8 sub-type strings duplicated from the ML package with a drift test — **which caught a real failure on first run** (my regex assumed a tuple, the ML file uses a list). `SUBTYPE_PARENT` + `is_valid_for()` stop "Policy Evasion" being stored under an Indirect Injection analysis, which a plain CHECK would accept. **`UNRELIABLE_SUBTYPES` encodes the Role Override finding in code** — 0.00 F1, never predicted, 14 of 18 land as Policy Evasion — so Task 56 and the UI can qualify it rather than trusting it. Separate nullable `confidence`, since the sub-type head is a different model) (subtype_name stores one of the 8 sub-type names from "Corrections" section 1 — the 5 Direct Jailbreak ones or the 3 Indirect Injection ones; nullable, since Safe results have no sub-type)
-🔵 Task 45 — Model: MitigationAction — **next up**
-🟡 Task 46 — Model: SafeSuggestion
+✅ Task 45 — Model: MitigationAction — **done** (115 tests pass, migration `da76a18a6ead`. **All five DB models complete.** This FK is deliberately NOT unique, unlike Tasks 43/44 — one prompt can be warned about and then rewritten, and forcing one row would overwrite the audit trail this table exists for. A `rewriting` action with no rewritten text is CHECK-rejected, since that is a bug not a state. `Prompt.prompt_text` is never overwritten — the original is what the analytics and any audit need)
+🔵 Task 46 — Model: SafeSuggestion — **next up**
 🟡 Task 47 — Model: AvatarGuidance
 🟡 Task 48 — Model: SimulationSession
 🟡 Task 49 — Model: LearningProgress
@@ -296,7 +296,7 @@ _Independent track — can start immediately, in parallel with ML. Branch prefix
 ### Backend (Jawaria) — Auth Endpoints
 _Depends only on Task 41 (User model), not on ML._
 
-🔴 Task 50 — POST /api/register (+hash password) — **needs Task 41 merged (User model must exist)**
+🟡 Task 50 — POST /api/register (+hash password) — **unblocked** (Task 41 done; `User` exists. Two rules from Task 41: hash into `password_hash`, and call `normalise_email()` on **register AND login** — normalising only on write locks the user out)
 🟡 Task 51 — Reject duplicate email
 🟡 Task 52 — POST /api/login (JWT)
 🟡 Task 53 — Reject wrong password

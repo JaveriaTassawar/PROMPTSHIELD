@@ -222,11 +222,31 @@ _**`confidence` is a separate nullable column**, not reused from Task 43. The su
 
 _`analysis_id` stays nullable per the plan (a sub-type may be seeded for a Task 62 simulation before any analysis exists) but is **unique**, so one analysis cannot accumulate several rows and make the dashboard count one attack as many._
 
-🔵 **Task 45** — Model: **MitigationAction** — `mitigation_id` PK, `analysis_id` FK, `action_type` (warning / blocking / rewriting), `action_description`, `mitigated_prompt`, `action_time`. — **next up**
+✅ **Task 45** — Model: **MitigationAction** — `mitigation_id` PK, `analysis_id` FK, `action_type` (warning / blocking / rewriting), `action_description`, `mitigated_prompt`, `action_time`. — **done**
 
-🟡 **Task 44** — Model: **AttackSubtype** — `subtype_id` PK, `analysis_id` FK (nullable), `subtype_name` (**one of the 8 sub-types above**; null for Safe), `type_description`.
+_`app/models/mitigation.py`, migration `da76a18a6ead`. **115 tests pass** (14 new). **All five DB models are complete — Tasks 41–45.**_
 
-🟡 **Task 45** — Model: **MitigationAction** — `mitigation_id` PK, `analysis_id` FK, `action_type` (warning / blocking / rewriting), `action_description`, `mitigated_prompt`, `action_time`.
+_**This FK is deliberately NOT unique, unlike Tasks 43 and 44.** One prompt can be warned about *and then* rewritten, or blocked after a warning. Forcing one row would make the second action overwrite the first — and the audit trail is the entire point of this table. The relationship orders by `action_time` so it reads in the order things happened._
+
+_**A `rewriting` action with no rewritten text is rejected** by a CHECK constraint. That is a bug, not a state, and without the constraint Task 57 could silently record an empty rewrite that the UI would render as a blank "safe version"._
+
+_**`Prompt.prompt_text` is never overwritten.** The rewrite lives here; the original stays on the prompt, because the Tasks 60–63 analytics and any audit need what the user actually typed. Tested explicitly._
+
+_**Append-only by convention** — nothing enforces it in SQL, but Task 57 should insert, never update. Rewriting history is exactly what an audit trail must not permit._
+
+_`mitigated_prompt` is `Text` and nullable: a rewrite is as long as the original (~3,900 tokens measured in the ML work), and only `rewriting` produces one — keeping it null makes "was this rewritten?" answerable without comparing strings._
+
+---
+
+### ✅ DB Models complete — Tasks 38–45 all done
+
+115 tests, 5 migrations, 5 tables. **Task 50 (`POST /api/register`) is unblocked** — it needed Task 41.
+
+**Two things Task 50 must honour, both decided at Task 41:**
+1. Hash with bcrypt into `password_hash`. The column is named that way so assigning a raw password reads wrong at the call site.
+2. Call `normalise_email()` on **register and login**. Normalising only on write leaves the user unable to log in with different casing.
+
+
 
 🟡 **Task 46** — Model: **SafeSuggestion** — `suggestion_id` PK, `analysis_id` FK, `suggested_prompt`, `suggestion_reason`, `generated_at`.
 

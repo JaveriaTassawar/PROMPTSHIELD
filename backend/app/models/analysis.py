@@ -136,6 +136,16 @@ class AnalysisResult(Base):
         cascade="all, delete-orphan",
     )
 
+    # A list, not a single row: one prompt can be warned about and then
+    # rewritten, or blocked after a warning. See MitigationAction
+    # decision 1 -- collapsing these would lose the audit trail.
+    mitigations: Mapped[list["MitigationAction"]] = relationship(  # noqa: F821
+        "MitigationAction",
+        back_populates="analysis",
+        cascade="all, delete-orphan",
+        order_by="MitigationAction.action_time",
+    )
+
     __table_args__ = (
         CheckConstraint(
             "prompt_type IN ('" + "', '".join(PROMPT_TYPES) + "')",
