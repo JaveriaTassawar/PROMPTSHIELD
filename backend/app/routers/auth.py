@@ -38,14 +38,30 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.database import get_db
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
+from app.core.tokens import create_access_token
 from app.models.user import User
-from app.schemas.auth import RegisterRequest, UserResponse
+from app.schemas.auth import (
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserResponse,
+)
 
 router = APIRouter(prefix="/api", tags=["auth"])
 
+# Verified against when no user matches, so an unknown email costs the
+# same time as a wrong password. Generated once at import; the value is
+# irrelevant, only the work of checking it matters.
+_TIMING_DUMMY_HASH = hash_password("timing-equalisation-placeholder")
+
 DUPLICATE_EMAIL_DETAIL = "An account with that email already exists."
+
+# One message for every login failure -- see the login docstring.
+INVALID_CREDENTIALS_DETAIL = "Incorrect email or password."
+INACTIVE_ACCOUNT_DETAIL = "This account has been deactivated."
 
 
 @router.post(
@@ -94,3 +110,69 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> User:
 
     db.refresh(user)
     return user
+
+
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+    responses={
+        401: {"description": INVALID_CREDENTIALS_DETAIL},
+        403: {"description": INACTIVE_ACCOUNT_DETAIL},
+    },
+)
+def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
+    """Verify credentials and return a JWT.
+
+    THE SAME 401 FOR AN UNKNOWN EMAIL AND A WRONG PASSWORD.
+
+    Two different messages would turn this endpoint into an account
+    enumerator: an attacker could submit any email and learn from the
+    response whether that person has an account. For a security-education
+    tool, leaking its own user list would be a poor advertisement.
+
+    The password is also verified even when no user matched. Returning
+    early on an unknown email makes that path measurably faster, and the
+    difference is enough to enumerate accounts by timing alone. Hashing a
+    throwaway value keeps both paths comparable.
+
+    A DEACTIVATED ACCOUNT GETS 403, NOT 401.
+
+    Different situation: the credentials were right. A 401 would send the
+    user into a password reset that cannot help them. Task 41 added
+    `is_active` for exactly this.
+    """
+    settings = get_settings()
+
+    user = db.query(User).filter(User.email == payload.email).first()
+
+    if user is None:
+        # No account. Verify against a dummy hash anyway so this path
+        # costs roughly what the real one does -- see the docstring.
+        verify_password(payload.password, _TIMING_DUMMY_HASH)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=INVALID_CREDENTIALS_DETAIL,
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not verify_password(payload.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=INVALID_CREDENTIALS_DETAIL,
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Checked AFTER the password, so a wrong password on a disabled
+    # account still answers 401 -- otherwise the 403 reveals that the
+    # account exists.
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=INACTIVE_ACCOUNT_DETAIL,
+        )
+
+    return TokenResponse(
+        access_token=create_access_token(user.user_id, user.role),
+        expires_in_minutes=settings.jwt_expire_minutes,
+        user=UserResponse.model_validate(user),
+    )

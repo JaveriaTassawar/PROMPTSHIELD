@@ -342,7 +342,11 @@ POST /api/register  {"email": "Jawaria@UCP.edu.pk", ...}   -> 201
 POST /api/register  {"email": "jawaria@ucp.edu.pk", ...}   -> 409
 ```
 
-_**⚠️ FOR TASK 55:** the endpoint honours the `role` field the frontend form posts, so **anyone can currently register as `admin`**. Harmless while no admin functionality exists, but Task 55 adds role-gated endpoints and **must close this** — either drop `role` from registration and default everyone to `student`, or require an existing admin to grant it._
+_**✅ PRIVILEGE ESCALATION — found and fixed.** The endpoint originally honoured the `role` the frontend posts, so **anyone could register as `admin`** by sending that value directly, bypassing the form. Closed by validating against a new `SELF_ASSIGNABLE_ROLES` constant (every role except `admin`) rather than `USER_ROLES`. A form is not a security control — `RegisterPage.jsx` already omits admin from its options, and this is the server-side enforcement of that. Two tests cover it, including that no admin row exists after an attempt._
+
+_**Also found: a role the database rejected.** The frontend offers four options — `student`, `developer`, `researcher`, **`organization`** — but the plan's Task 55 list and the CHECK constraint had only the first three plus `admin`. **Choosing "Organization" in the live form returned a 422.** Added `organization` to `USER_ROLES`, since the frontend option is a product decision and the backend list was an implementation detail. A test now asserts every option the form offers is accepted._
+
+_**⚠️ That fix needed a hand-written migration (`dd6fb3d909b5`).** `--autogenerate` produced an **empty** file: **Alembic does not diff CHECK constraints.** It compares tables, columns, indexes and foreign keys, and a changed CHECK is invisible to it. The Python constant and the database had silently diverged. **Any future CHECK change needs a hand-written migration** — autogenerate will report "no changes detected" and be wrong._
 
 ✅ **Task 51** — Reject duplicate email with **409** — **done**
 
@@ -352,9 +356,25 @@ _**Checked twice: a pre-check and a caught `IntegrityError`.** The pre-check giv
 
 _Duplicate detection is case-insensitive, because `normalise_email()` runs in the schema validator before the lookup._
 
-🟡 **Task 52** — `POST /api/login` — verify the hash, return a JWT. Token carries `user_id` and `role`.
+✅ **Task 52** — `POST /api/login` — verify the hash, return a JWT. Token carries `user_id` and `role`. — **done**
 
-🟡 **Task 53** — Reject wrong password with **401**. Same generic message for "wrong password" and "no such user" — don't leak which emails exist.
+_`app/core/tokens.py`, plus `login` in `app/routers/auth.py`. **199 tests pass** (20 new)._
+
+_**The same 401 for an unknown email and a wrong password.** Different messages would turn this endpoint into an **account enumerator** — submit any email, learn from the response whether that person has an account. For a security-education tool, leaking its own user list would be a poor advertisement._
+
+_**The password is verified even when no user matched.** Returning early on an unknown email makes that path measurably faster, and the difference is enough to enumerate accounts **by timing alone**. A dummy hash is verified instead, so both paths cost about the same._
+
+_**A deactivated account gets 403, not 401** — the credentials were right, and a 401 would send the user into a password reset that cannot help them. But it is checked **after** the password, so a wrong password on a disabled account still answers 401; otherwise the 403 itself reveals the account exists._
+
+_**`sub` is a string, not an int.** RFC 7519 requires it, and some client libraries reject a numeric subject. Converted on the way in and back on the way out, so callers still deal in ints._
+
+_**`decode_token()` returns `None`, never raises.** Expired, tampered, malformed and wrong-algorithm tokens all mean "not authenticated", and a caller should not need to tell them apart to produce a 401. Tests forge a signature, swap `role` to `admin` in the payload, and feed in garbage — all rejected._
+
+_The algorithm is pinned on decode, so a token claiming `alg: none` is refused rather than trusted._
+
+_**⚠️ FOR TASK 55:** the role travels **in the token**, which avoids a database lookup per request but means a role change does not take effect until the token expires — an admin demoted at 10:00 keeps admin rights until 11:00. Acceptable at a 60-minute expiry. **If Task 55 needs immediate revocation, it must read the role from the database rather than trusting the claim.**_
+
+✅ **Task 53** — Reject wrong password with **401**. Same generic message for "wrong password" and "no such user". — **done** (delivered with Task 52; `test_unknown_email_is_401_with_the_same_message` asserts both the status **and** the detail string match, so the endpoint cannot be used to discover which emails have accounts. The dummy-hash verification also equalises response time, closing the timing side-channel that a status-code check alone would leave open.)
 
 🟡 **Task 54** — `GET /api/profile` — JWT-protected; 401 without a valid token.
 

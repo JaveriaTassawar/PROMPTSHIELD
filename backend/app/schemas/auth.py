@@ -24,7 +24,11 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.core.security import MAX_PASSWORD_BYTES, MIN_PASSWORD_LENGTH
-from app.models.user import DEFAULT_ROLE, USER_ROLES, normalise_email
+from app.models.user import (
+    DEFAULT_ROLE,
+    SELF_ASSIGNABLE_ROLES,
+    normalise_email,
+)
 
 
 class RegisterRequest(BaseModel):
@@ -66,11 +70,22 @@ class RegisterRequest(BaseModel):
 
     @field_validator("role")
     @classmethod
-    def _known_role(cls, value: str) -> str:
-        """Checked here as well as by the database CHECK, so a bad role
-        is a 422 naming the valid values rather than a 500."""
-        if value not in USER_ROLES:
-            raise ValueError(f"role must be one of {', '.join(USER_ROLES)}")
+    def _self_assignable_role(cls, value: str) -> str:
+        """Reject `admin` and anything unknown.
+
+        Deliberately validates against SELF_ASSIGNABLE_ROLES, not
+        USER_ROLES: this endpoint is unauthenticated, so accepting the
+        role verbatim would let any visitor grant themselves
+        administrator rights. `admin` is granted through the role-gated
+        path in Task 55, never through a public form.
+
+        Checked here as well as by the database CHECK so an unknown role
+        is a 422 naming the valid values rather than a 500.
+        """
+        if value not in SELF_ASSIGNABLE_ROLES:
+            raise ValueError(
+                f"role must be one of {', '.join(SELF_ASSIGNABLE_ROLES)}"
+            )
         return value
 
     @field_validator("user_name")
@@ -97,3 +112,37 @@ class UserResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class LoginRequest(BaseModel):
+    """Body of POST /api/login.
+
+    No length or format validation beyond "present". A login must not
+    reveal what the password rules are, and rejecting a wrong-shaped
+    password with 422 instead of 401 tells an attacker their guess was
+    not even a candidate -- which narrows the search space for free.
+    """
+
+    email: EmailStr
+    password: str
+
+    @field_validator("email")
+    @classmethod
+    def _normalise_email(cls, value: str) -> str:
+        """Must match registration, or a user who signed up as
+        `Jawaria@` cannot log in as `jawaria@`. Task 41 flagged this."""
+        return normalise_email(value)
+
+
+class TokenResponse(BaseModel):
+    """Successful login.
+
+    `token_type` is "bearer" per RFC 6750, so the client knows to send
+    `Authorization: Bearer <token>`. The user object is included so the
+    frontend can render a name and role without a second request.
+    """
+
+    access_token: str
+    token_type: str = "bearer"
+    expires_in_minutes: int
+    user: UserResponse

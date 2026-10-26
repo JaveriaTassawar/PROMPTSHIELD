@@ -165,3 +165,48 @@ def test_endpoint_appears_in_openapi(client: TestClient) -> None:
     responses = schema["paths"]["/api/register"]["post"]["responses"]
     assert "201" in responses
     assert "409" in responses, "the duplicate-email status must be documented"
+
+
+# --- privilege escalation fix ---------------------------------------------
+
+
+def test_cannot_self_register_as_admin(client: TestClient) -> None:
+    """The endpoint is unauthenticated, so honouring a posted role of
+    `admin` would let any visitor grant themselves administrator rights.
+
+    frontend/src/pages/RegisterPage.jsx already omits admin from its
+    options; this is the server-side enforcement, because a form is not
+    a security control.
+    """
+    response = client.post("/api/register", json=dict(VALID, role="admin"))
+
+    assert response.status_code == 422
+    assert "admin" not in response.json()["detail"][0]["msg"]
+
+
+def test_admin_cannot_be_created_through_the_api(
+    client: TestClient, db_session: Session
+) -> None:
+    """Belt and braces: no admin row exists after the attempt."""
+    client.post("/api/register", json=dict(VALID, role="admin"))
+
+    assert db_session.query(User).filter(User.role == "admin").count() == 0
+
+
+def test_organization_role_is_accepted(client: TestClient) -> None:
+    """The frontend offers Organization; before this it returned 422
+    from a CHECK constraint the Python constant had drifted from."""
+    response = client.post("/api/register", json=dict(VALID, role="organization"))
+
+    assert response.status_code == 201
+    assert response.json()["role"] == "organization"
+
+
+def test_every_frontend_role_option_is_accepted(client: TestClient) -> None:
+    """The four values in RegisterPage.jsx ROLES must all work."""
+    for index, role in enumerate(
+        ("student", "developer", "researcher", "organization")
+    ):
+        payload = dict(VALID, role=role, email=f"user{index}@ucp.edu.pk")
+        response = client.post("/api/register", json=payload)
+        assert response.status_code == 201, f"{role} was rejected"
