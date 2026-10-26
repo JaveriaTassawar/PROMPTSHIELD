@@ -74,11 +74,33 @@ Markers: ✅ done · 🔵 ready now · 🟡 in progress order (finish the one be
 
 🟡 **Task 70** — Register page UI — name, email, password, role picker (student / developer / researcher / organization) per the SDS prototype.
 
-🔴 **Task 71** — Wire Register → `POST /api/register` — **needs Backend Task 50 merged**.
+✅ **Task 71** — Wire Register → `POST /api/register` — **done**
 
-🔴 **Task 72** — Wire Login → `POST /api/login`; store the JWT (in memory + `localStorage`), attach it to axios as a default header — **needs Backend Task 52 merged**.
+✅ **Task 72** — Wire Login → `POST /api/login`; store the JWT, attach it to axios — **done**
 
-🔴 **Task 73** — Route guard — redirect unauthenticated users to Login; verify the token via `GET /api/profile` — **needs Backend Task 54 merged**.
+✅ **Task 73** — Route guard — redirect unauthenticated users; verify the token via `GET /api/profile` — **done**
+
+_New: `src/api/client.js`, `src/api/auth.js`, `src/auth/{context.js, AuthContext.jsx, useAuth.js, RequireAuth.jsx}`. Edited: `LoginPage`, `RegisterPage`, `App.jsx`. **Lint clean, build passes in 480ms.** The whole flow was verified against a running backend._
+
+```
+POST /api/register  (role: organization)  -> 201
+POST /api/login                           -> 200 + token
+GET  /api/profile   with token            -> 200
+GET  /api/profile   without token         -> 401
+CORS preflight from localhost:5173        -> allowed, incl. the Authorization header
+```
+
+_**The stored token is verified against the server before it is trusted** — Task 73's real requirement, and the reason `AuthContext` is more than a `useState`. A token in `localStorage` proves nothing: it may be expired, or the account deactivated since (the backend re-checks `is_active` on every request). Trusting it blindly would show the dashboard to someone whose access was revoked, then fail every request they made._
+
+_**`status` is three-valued — `checking` / `authenticated` / `anonymous` — not a boolean.** With a boolean, the first render after a refresh is indistinguishable from logged-out, so the guard would bounce an authenticated user to Login every time they pressed F5. That is the commonest bug in hand-rolled route guards, and the three-state machine is what avoids it._
+
+_**A 401 clears the session; a 403 does not.** The backend returns 401 for missing/expired/revoked tokens and 403 for "authenticated but not allowed" (wrong role, or deactivated). Clearing on a 403 would log an admin out for visiting one page they lack rights to._
+
+_**The axios interceptor does not navigate.** It notifies a handler the auth layer registers, so the HTTP client stays independent of React Router — otherwise any non-component caller would break._
+
+_**⚠️ `localStorage` is a documented trade-off, not an oversight.** Task 72 specifies it, and it survives a refresh where a memory-only token does not — but any script on the page can read it, so an XSS bug becomes a stolen session. `httpOnly` cookies avoid that at the cost of backend changes and CSRF handling. **Worth a sentence in the report**, given the project's subject._
+
+_Two lint errors were fixed properly rather than suppressed: the context object and the `useAuth` hook each moved to their own file, because a module exporting both a component and a plain value breaks Vite's Fast Refresh — editing the provider would full-reload and drop the session mid-work._
 
 ### Prompt Analyzer & Detection Result
 

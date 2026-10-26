@@ -330,9 +330,9 @@ _Independent track — can start immediately, in parallel with ML and Backend. B
 🟡 Task 68 — Tailwind config
 🟡 Task 69 — Login page UI
 🟡 Task 70 — Register page UI
-🔴 Task 71 — Wire Register — **needs Task 50 merged**
-🔴 Task 72 — Wire Login (JWT storage) — **needs Task 52 merged**
-🔴 Task 73 — Route guard — **needs Task 54 merged**
+✅ Task 71 — Wire Register — **done** (posts `name`/`email`/`password`/`role`, then signs in with the same credentials so the user does not type them twice. 409 and 422 are unwrapped into a readable message)
+✅ Task 72 — Wire Login (JWT storage) — **done** (axios interceptor attaches the token; a 401 clears the session but a **403 does not**, else an admin visiting one forbidden page gets logged out. The interceptor notifies a handler rather than navigating, keeping the HTTP client independent of the router. **⚠️ `localStorage` is a documented trade-off** — survives refresh, readable by any script, so XSS becomes a stolen session)
+✅ Task 73 — Route guard — **done** (**the stored token is verified against `GET /api/profile` before it is trusted** — it may be expired or the account deactivated since. `status` is three-valued, not boolean: with a boolean the first render after F5 looks like logged-out and the guard bounces an authenticated user to Login — the commonest bug in hand-rolled guards)
 
 ### Frontend (Rana) — Prompt Analyzer & Detection Result
 _UI tasks (74-75, 77-79) can be built against a mocked JSON response shaped like SDS §6.5's sample and don't need to wait on Backend. Only Task 76 (wiring) needs Task 56 merged — see join point #2._

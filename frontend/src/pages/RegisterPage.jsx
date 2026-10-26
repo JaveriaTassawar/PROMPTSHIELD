@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Alert from '../components/Alert.jsx'
 import Button from '../components/Button.jsx'
 import FormField from '../components/FormField.jsx'
@@ -13,7 +13,9 @@ import {
   MailIcon,
   UserIcon,
 } from '../components/icons.jsx'
-import { mockRegister } from '../mocks/auth.js'
+import { register } from '../api/auth.js'
+import { errorMessage } from '../api/client.js'
+import { useAuth } from '../auth/useAuth.js'
 import { shake } from '../utils/motion.js'
 import { isValidEmail } from '../utils/validation.js'
 
@@ -47,6 +49,9 @@ function validate({ name, email, password, role }) {
 function RegisterPage() {
   const [values, setValues] = useState({ name: '', email: '', password: '', role: '' })
   const [submitted, setSubmitted] = useState(false)
+  const [errorText, setErrorText] = useState('')
+  const { login } = useAuth()
+  const navigate = useNavigate()
   const [status, setStatus] = useState('idle') // idle | submitting | success | error
   const nameRef = useRef(null)
   const emailRef = useRef(null)
@@ -84,9 +89,23 @@ function RegisterPage() {
 
     setStatus('submitting')
     try {
-      await mockRegister()
+      await register({
+        name: values.name,
+        email: values.email,
+        password: values.password,
+        role: values.role,
+      })
+      // Registration does not return a token, so sign in with the
+      // credentials just used. Saves the user typing them twice.
+      await login({ email: values.email, password: values.password })
       setStatus('success')
-    } catch {
+      navigate('/dashboard', { replace: true })
+    } catch (error) {
+      // 409 means the email is taken; 422 carries a field message such
+      // as a too-short password. errorMessage() unwraps both -- the
+      // backend returns 409 rather than 400 precisely so this case can
+      // be told apart from a validation failure.
+      setErrorText(errorMessage(error, 'Could not create your account.'))
       setStatus('error')
     }
   }
@@ -103,7 +122,7 @@ function RegisterPage() {
       <div className="mt-6 animate-fade-up" style={{ animationDelay: '120ms' }}>
         {status === 'error' && (
           <Alert variant="error" className="mb-4">
-            Email already exists.
+            {errorText || 'Email already exists.'}
           </Alert>
         )}
         {status === 'success' && (

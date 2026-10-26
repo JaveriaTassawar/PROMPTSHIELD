@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import Alert from '../components/Alert.jsx'
 import Button from '../components/Button.jsx'
 import FormField from '../components/FormField.jsx'
 import PasswordField from '../components/PasswordField.jsx'
 import { MailIcon } from '../components/icons.jsx'
-import { mockLogin } from '../mocks/auth.js'
+import { errorMessage } from '../api/client.js'
+import { useAuth } from '../auth/useAuth.js'
 import { shake } from '../utils/motion.js'
 import { isValidEmail } from '../utils/validation.js'
 
@@ -25,6 +26,10 @@ function validate({ email, password }) {
 function LoginPage() {
   const [values, setValues] = useState({ email: '', password: '' })
   const [submitted, setSubmitted] = useState(false)
+  const [errorText, setErrorText] = useState('')
+  const { login } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
   const [status, setStatus] = useState('idle') // idle | submitting | success | error
   const emailRef = useRef(null)
   const passwordRef = useRef(null)
@@ -55,9 +60,17 @@ function LoginPage() {
 
     setStatus('submitting')
     try {
-      await mockLogin()
+      await login({ email: values.email, password: values.password })
       setStatus('success')
-    } catch {
+      // Back to wherever the route guard interrupted them, not a
+      // generic landing page. See RequireAuth decision 2.
+      navigate(location.state?.from ?? '/dashboard', { replace: true })
+    } catch (error) {
+      // The backend returns the same 401 for a wrong password and an
+      // unknown email, on purpose -- so there is nothing to tell apart
+      // here either. A 403 means the account was deactivated, which is
+      // worth saying plainly.
+      setErrorText(errorMessage(error, 'Invalid email or password.'))
       setStatus('error')
     }
   }
@@ -74,7 +87,7 @@ function LoginPage() {
       <div className="mt-6 animate-fade-up" style={{ animationDelay: '120ms' }}>
         {status === 'error' && (
           <Alert variant="error" className="mb-4">
-            Invalid email or password.
+            {errorText || 'Invalid email or password.'}
           </Alert>
         )}
         {status === 'success' && (
