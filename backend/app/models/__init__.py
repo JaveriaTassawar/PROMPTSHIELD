@@ -22,6 +22,6 @@ below as Tasks 41-45 land:
 from __future__ import annotations
 
 # Re-exported so `import app.models` registers everything on Base.metadata.
-# Tasks 41-45 append here, e.g.:
-#     from app.models.user import User  # noqa: F401
-__all__: list[str] = []
+from app.models.user import User  # noqa: F401
+
+__all__ = ["User"]

@@ -131,9 +131,25 @@ cd backend
 .venv\Scripts\python.exe -m alembic downgrade -1      # roll back one
 ```
 
-🔵 **Task 41** — Model: **User** — `user_id` PK, `user_name`, `email` (unique, not null), `password` (hash), `role`, `created_at`. — **next up**
+✅ **Task 41** — Model: **User** — `user_id` PK, `user_name`, `email` (unique, not null), `password` (hash), `role`, `created_at`. — **done**
 
-🟡 **Task 42** — Model: **Prompt** — `prompt_id` PK, `user_id` FK, `prompt_text`, `submission_time`, `status` (`pending` / `analyzed` / `blocked`).
+_`app/models/user.py`, migration `49db872b27a3`. **45 tests pass** (14 new). Upgrade and downgrade both verified — the table and its two indexes drop and recreate cleanly._
+
+_**The column is `password_hash`, not `password` — a deliberate change from the plan's wording.** Naming it `password` invites `User(password=payload.password)` at the call site in Task 50, which stores plaintext and passes every test, because nothing about a string column objects. `password_hash=` reads visibly wrong when handed a raw password. **For a project whose subject is security, a plaintext password column found by an examiner would undercut the whole thing.** Width is 60, bcrypt's fixed output._
+
+_**Email is case-folded via `normalise_email()`.** `Jawaria@ucp.edu.pk` and `jawaria@ucp.edu.pk` are one mailbox, but a plain UNIQUE index treats them as two accounts — a duplicate-registration hole, plus a login that only works with the original casing. **Task 50 must call it on register AND login**; normalising only on write still locks the user out._
+
+_**Role is CHECK-constrained** to `student` / `developer` / `researcher` / `admin`, the values Task 55 gates on. A typo like `"admim"` would otherwise write fine and silently strip that user's access with no error anywhere. A native ENUM would be stricter but needs a migration per value and SQLite has no real enum type, so CHECK is the portable choice. Tests cover every valid role plus a rejected invalid one._
+
+_**`created_at` uses `server_default=func.now()`**, not a Python default — so the timestamp comes from the database for every row however it was inserted, including seed scripts and manual SQL, rather than from whichever app server happened to handle the request._
+
+_**Added `is_active`** (not in the plan's field list): lets an admin disable an account without deleting it, which matters because the analytics in Tasks 60–63 still need that user's prompt history._
+
+_`__repr__` omits the hash — `repr()` lands in logs and tracebacks._
+
+_**The Task 40 import trap was handled:** `app/models/__init__.py` now imports `User`, and autogenerate correctly detected `users` plus both indexes. A test asserts the registration so a future model cannot silently miss it._
+
+🔵 **Task 42** — Model: **Prompt** — `prompt_id` PK, `user_id` FK, `prompt_text`, `submission_time`, `status` (`pending` / `analyzed` / `blocked`). — **next up**
 
 🟡 **Task 43** — Model: **AnalysisResult** — `analysis_id` PK, `prompt_id` FK, `detection_result`, `prompt_type` (**stores the 3-class label**), `severity_level`, `confidence_score`, `analysed_at`.
 
