@@ -98,6 +98,16 @@ class Prompt(Base):
         "User", back_populates="prompts"
     )
 
+    # One analysis per prompt (the FK is unique). Deleting the prompt
+    # deletes its analysis -- an analysis with no prompt has nothing to
+    # display. See AnalysisResult decision 4.
+    analysis: Mapped["AnalysisResult | None"] = relationship(  # noqa: F821
+        "AnalysisResult",
+        back_populates="prompt",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
     __table_args__ = (
         CheckConstraint(
             "status IN ('" + "', '".join(PROMPT_STATUSES) + "')",
