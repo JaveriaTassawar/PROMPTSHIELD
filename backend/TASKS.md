@@ -376,9 +376,25 @@ _**⚠️ FOR TASK 55:** the role travels **in the token**, which avoids a datab
 
 ✅ **Task 53** — Reject wrong password with **401**. Same generic message for "wrong password" and "no such user". — **done** (delivered with Task 52; `test_unknown_email_is_401_with_the_same_message` asserts both the status **and** the detail string match, so the endpoint cannot be used to discover which emails have accounts. The dummy-hash verification also equalises response time, closing the timing side-channel that a status-code check alone would leave open.)
 
-🟡 **Task 54** — `GET /api/profile` — JWT-protected; 401 without a valid token.
+✅ **Task 54** — `GET /api/profile` — JWT-protected; 401 without a valid token. — **done**
 
-🟡 **Task 55** — Role field: `student` / `developer` / `researcher` / `admin`, enforced by a reusable dependency.
+_`app/core/deps.py` + the `profile` route. **215 tests pass** (16 new)._
+
+_**The endpoint takes no `user_id` parameter, on purpose.** One that did would need an authorisation check to stop user 1 reading user 2's profile, and forgetting that check is among the commonest API vulnerabilities. Reading the id from the verified token makes the bug **unexpressible**. Admin access to other users' records belongs in Task 64, behind `require_roles("admin")`._
+
+_**A missing header returns 401, not 403.** FastAPI's `HTTPBearer` defaults to 403 for a missing `Authorization` header, which is the wrong code — "you did not authenticate" is 401. Fixed with `auto_error=False` so our handler produces one consistent answer for missing, malformed and expired tokens alike._
+
+_**Deactivation takes effect immediately.** An existing token stops working on the next request, because the user is loaded from the database and `is_active` is re-checked. Had the user been read from the token, deactivating an account would have done nothing for up to an hour — defeating the point of deactivating it._
+
+✅ **Task 55** — Role field, enforced by a reusable dependency. — **done**
+
+_`require_roles(*roles)` is a factory, so `Depends(require_roles("admin"))` keeps the allowed set beside the endpoint it guards rather than in a separate route-to-role table that drifts. `require_admin` is provided for the common case._
+
+_**⚠️ RESOLVED THE TASK 52 STALENESS WARNING — the role is read from the database, never from the token.** Task 52 flagged that carrying `role` in the JWT means a demotion lags until expiry. This takes the safe side: one indexed primary-key lookup per request is cheap, a stale privilege is not. The claim stays in the token for clients to read, but **the server never trusts it**._
+
+_Two tests prove it: a demoted admin loses access on the **next request**, and a correctly-signed token *claiming* `admin` for a student account is still refused 403._
+
+_Insufficient role is **403, not a concealing 404** — these routes appear in the OpenAPI schema anyway, so a 404 would mislead legitimate users without hiding anything from anyone who read `/docs`._
 
 > **🔴 Frontend Tasks 71–73 (wiring Register / Login / route guard) depend on Tasks 50 / 52 / 54.** Frontend UI-only Tasks 69–70 do not.
 

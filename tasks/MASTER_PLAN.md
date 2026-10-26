@@ -300,15 +300,15 @@ _Depends only on Task 41 (User model), not on ML._
 ✅ Task 51 — Reject duplicate email with **409** — **done** (409 not 400: the request was well-formed and failed on existing state, and the frontend must distinguish "email taken" from "check your details". Pre-check **and** a caught IntegrityError, so the two-request race does not 500 the loser — rare on SQLite, real on Postgres. Case-insensitive via `normalise_email()`)
 ✅ Task 52 — POST /api/login (JWT) — **done** (199 tests pass. **Same 401 for unknown email and wrong password**, so the endpoint cannot enumerate accounts — and the password is verified even when no user matched, since returning early is measurably faster and enumerable by timing. Deactivated account gets 403, but only after the password checks out, else the 403 reveals the account exists. `sub` is a string per RFC 7519; `decode_token()` returns None rather than raising. Forged-signature and payload-swap tests included. **⚠️ Task 55: role travels in the token, so a demotion lags until expiry — read from the DB if immediate revocation is needed**)
 ✅ Task 53 — Reject wrong password — **done** (delivered with Task 52 — same status *and* same detail string for both cases, plus timing equalisation)
-🔵 Task 54 — GET /api/profile (JWT-protected)
-🟡 Task 55 — Role field (student/developer/researcher/admin)
+✅ Task 54 — GET /api/profile (JWT-protected) — **done** (215 tests pass. **Takes no `user_id` parameter on purpose** — one that did would need an authorisation check to stop user 1 reading user 2, and forgetting it is among the commonest API bugs; reading the id from the token makes it unexpressible. Missing header returns 401 not FastAPI`s default 403. **Deactivation takes effect on the next request**, not at token expiry)
+✅ Task 55 — Role field, reusable dependency — **done** (`require_roles()` factory keeps the allowed set beside the endpoint. **⚠️ Resolved the Task 52 staleness warning: the role is read from the DB, never the token** — a demoted admin loses access on the next request, and a correctly-signed token *claiming* admin is still refused. 403 not a concealing 404, since the routes are in the OpenAPI schema anyway)
 
 **🔴 Frontend Tasks 71–73 (wiring Register/Login/route guard) depend on Tasks 50/52/54 being merged. Frontend UI-only Tasks 69–70 do not — see Dependency Map join point #3.**
 
 ### Backend (Jawaria) — Prompt Analysis Endpoints
 _Task 56 is the hard ML dependency — see join point #1 above._
 
-🔴 Task 56 — POST /api/analyze-prompt (safe prompt test) — **needs Task 37 merged (or a stubbed classifier — see note above)**
+🔵 Task 56 — POST /api/analyze-prompt (safe prompt test) — **next up, UNBLOCKED** (ML Tasks 35–37 are merged: `ml/inference/classifier.py` exists, `classify()` works, latency is 4.7–10.9 ms. No stub needed. Three things decided earlier that this task must honour: **treat `subtype` AND `guidance` as optional** (the sub-type model may be unconfigured, and the frontend renders its own guidance until Task 82); **reject oversized input with 422** before it reaches the `Text` column, where it would be a 500; and **fix `.env.example`**, which names `MODEL_PATH` while the ML wrapper reads `PROMPTSHIELD_MODEL_PATH` and points at a checkpoint directory that does not exist — the real one is `ml/models/run01_ck28371`)
 🟡 Task 57 — Store AnalysisResult row
 🟡 Task 58 — Test with jailbreak-style prompt
 🟡 Task 59 — POST /api/safe-prompt

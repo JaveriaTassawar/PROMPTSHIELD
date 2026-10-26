@@ -40,6 +40,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.deps import get_current_user
 from app.core.security import hash_password, verify_password
 from app.core.tokens import create_access_token
 from app.models.user import User
@@ -176,3 +177,26 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse
         expires_in_minutes=settings.jwt_expire_minutes,
         user=UserResponse.model_validate(user),
     )
+
+
+@router.get(
+    "/profile",
+    response_model=UserResponse,
+    responses={
+        401: {"description": "Missing, malformed or expired token"},
+        403: {"description": INACTIVE_ACCOUNT_DETAIL},
+    },
+)
+def profile(user: User = Depends(get_current_user)) -> User:
+    """The authenticated caller's own account.
+
+    Task 54. There is no user_id parameter on purpose: an endpoint that
+    took one would need an authorisation check to stop user 1 reading
+    user 2's profile, and the commonest way to get that wrong is to
+    forget it. Reading the id from the verified token makes the
+    vulnerability unexpressible.
+
+    Admin access to *other* users' records belongs in Task 64, behind
+    require_roles("admin").
+    """
+    return user
