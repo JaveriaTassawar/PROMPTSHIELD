@@ -281,8 +281,8 @@ Macro F1 barely moves (0.9756 → 0.9731), which is the expected result and a us
 _Independent track — can start immediately, in parallel with ML. Branch prefix: `backend/`._
 
 ✅ Task 38 — Scaffold FastAPI app, health route — **done** (10 tests pass; `/health`, `/`, `/docs`, `/openapi.json` all 200. `create_app()` factory — **every later router must be included inside it**, a route added after it returns attaches only to the module-level app and 404s in tests. Config **refuses to boot** with the placeholder JWT secret outside development. CORS from `CORS_ORIGINS`, not `*`. **Found: `.env.example` says `MODEL_PATH` but the ML wrapper reads `PROMPTSHIELD_MODEL_PATH` — `Settings` accepts either; fix the example file at Task 56**)
-🟡 Task 39 — SQLAlchemy engine + session (SQLite)
-🟡 Task 40 — Alembic init
+✅ Task 39 — SQLAlchemy engine + session (SQLite) — **done** (21 tests pass. Session closes in a `finally`, verified through FastAPI — a 500 from one endpoint leaves the pool healthy for the next request; a trailing `close()` would instead hang under load. `check_same_thread` applied to SQLite only, since it is a `TypeError` on psycopg2. `Base` is 2.x `DeclarativeBase` for the typed models in 41–45. **Task 40 note: Alembic autogenerate reads `Base.metadata`, so every model must be imported in `app/models/__init__.py` or migrations will not see it**)
+🔵 Task 40 — Alembic init — **next up**
 🟡 Task 41 — Model: User
 🟡 Task 42 — Model: Prompt
 🟡 Task 43 — Model: AnalysisResult (prompt_type field stores the 3-class label: Safe / Direct Jailbreak / Indirect Injection, per SDS §5.2 Analysis Result Table)

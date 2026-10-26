@@ -73,9 +73,33 @@ _`/health` reports `environment`, `database`, `model_configured` and `subtype_mo
 
 _Verified gitignored: `backend/.venv/`, `backend/promptshield.db`, `__pycache__/`, `.env`. Exactly 10 source files stage._
 
-🔵 **Task 39** — SQLAlchemy engine + session (SQLite), with a `get_db()` dependency. — **next up**
+✅ **Task 39** — SQLAlchemy engine + session (SQLite), with a `get_db()` dependency. — **done**
 
-🟡 **Task 40** — `alembic init`, wire it to the same `DATABASE_URL`, generate the first migration.
+_`app/core/database.py` — engine, `SessionLocal`, `Base`, `get_db()`. **21 tests pass** (10 from Task 38 + 11 new). Self-check: `python -m app.core.database`._
+
+_**The session closes in a `finally`, not after the `yield`.** Verified through FastAPI, not just in isolation — an endpoint that raises returns 500, and **the next request still succeeds**:_
+
+```
+GET /dbcheck -> 200 {'one': 1}
+GET /dbfail  -> 500          (session still closed)
+GET /dbcheck -> 200 {'one': 1}   <- pool healthy after the error
+```
+
+_With a trailing `db.close()` instead, that third request would eventually hang rather than error, once the pool drained. **That failure looks like a network problem and is miserable to trace**, so it is worth the test._
+
+_**`get_db()` does not commit.** Each endpoint commits its own unit of work — a dependency that auto-committed would persist half of a failed operation._
+
+_**Driver args are computed, not hardcoded.** SQLite needs `check_same_thread=False` because FastAPI runs sync endpoints in a threadpool and would otherwise raise *"SQLite objects created in a thread can only be used in that same thread"*. **That same argument is a `TypeError` on psycopg2**, so `_connect_args()` returns it only for SQLite — one module serves local SQLite and deployed Postgres with no edit. Two tests pin both directions._
+
+_**`pool_pre_ping` is on for Postgres only** — a pooled connection dropped by the server while idle would otherwise fail one request before being replaced. Pointless against a local file._
+
+_**`Base` is a SQLAlchemy 2.x `DeclarativeBase`**, not the legacy `declarative_base()` factory — SQLAlchemy 2.1.5 is installed and the models in Tasks 41–45 will use typed `Mapped[...]` annotations, which the old idiom mixes badly with._
+
+_**`expire_on_commit=False`** so an endpoint can return the object it just saved without a second query against an already-closed session._
+
+_**For Task 40:** Alembic autogenerate reads `Base.metadata`, so a model that is defined but never imported is **invisible to migrations**. `app/models/__init__.py` must import all five._
+
+🔵 **Task 40** — `alembic init`, wire it to the same `DATABASE_URL`, generate the first migration. — **next up**
 
 🟡 **Task 41** — Model: **User** — `user_id` PK, `user_name`, `email` (unique, not null), `password` (hash), `role`, `created_at`.
 
