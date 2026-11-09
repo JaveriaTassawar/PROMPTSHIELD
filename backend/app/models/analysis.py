@@ -117,6 +117,18 @@ class AnalysisResult(Base):
     # was blocked. Text rather than String because it may quote the prompt.
     explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # How long classification took, in milliseconds. Added at Task 64:
+    # the frontend dashboard shows an average response time, and the only
+    # alternative to measuring it was inventing a plausible-looking
+    # number. Nullable because rows created before this column existed
+    # have no measurement, and reporting 0 for them would drag the
+    # average down with fabricated data.
+    #
+    # Measures the model call only, not the HTTP round trip -- that is
+    # the figure the SRS 4.1 budget of 200 ms applies to, and the one the
+    # ML track measured at 4.7-10.9 ms.
+    latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+
     analysed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -179,6 +191,10 @@ class AnalysisResult(Base):
         CheckConstraint(
             "confidence_score >= 0.0 AND confidence_score <= 1.0",
             name="ck_analysis_confidence_range",
+        ),
+        CheckConstraint(
+            "latency_ms IS NULL OR latency_ms >= 0",
+            name="ck_analysis_latency_non_negative",
         ),
         # Tasks 60-63 aggregate "how many of each class, over time".
         Index("ix_analysis_type_time", "prompt_type", "analysed_at"),

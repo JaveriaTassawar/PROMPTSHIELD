@@ -554,7 +554,40 @@ _**Added `origin` to turns** (`dataset` / `authored`), defaulting to `authored` 
 
 _**⚠️ Alembic gotcha, third time.** Autogenerate detected the new column but **not its CHECK constraint** — the same blindness as `dd6fb3d909b5`. Hand-written, and verified by inserting an invalid origin and watching it be rejected._
 
-🟡 **Task 64** — `GET /api/dashboard` — aggregate stats: total analyses, counts per class, counts per sub-type, recent activity.
+✅ **Task 64** — `GET /api/dashboard` — aggregate stats: total analyses, counts per class, counts per sub-type, recent activity. — **done**
+
+_`app/routers/dashboard.py`, `app/schemas/dashboard.py`, migration `e926353f445f`. **359 tests pass** (24 new)._
+
+_**⚠️ THE FRONTEND MOCK HAD A FABRICATED LATENCY, AND NOTHING STORED A REAL ONE.** `mocks/dashboard.js` ships `avgResponseTimeMs: 420`. The choice was to invent a plausible number or to measure one — so Task 64 added `AnalysisResult.latency_ms` and records the model call._
+
+_**That measurement then caught its own bug.** The first live run reported **814 ms average**, which flatly contradicts the ML track's 4.7–10.9 ms. The per-call figures explain it:_
+
+```
+call 1:  2407.6 ms     <- includes the one-off 268 MB checkpoint load
+call 2:    14.2 ms
+call 3:    21.5 ms
+```
+
+_Averaging a cold start with warm calls reports **814 ms for a system whose steady state is under 25 ms** — not merely unflattering but **wrong**, and it would have appeared on the dashboard contradicting the project's own latency claim. `model_is_warm()` now excludes the cold-start sample. After the fix:_
+
+```
+per-call: [cold (not recorded), 15.1, 15.8, 17.1]
+avgResponseTimeMs: 16.02 ms
+```
+
+_The cold call still counts as an *analysis* — only its timing is excluded. Three tests cover it, including the realistic cold-then-warm sequence._
+
+_**Null, not zero, when nothing is measured.** Rows predating the column have no measurement, and `AVG` ignoring nulls is correct — treating them as 0 would report a fabricated sub-millisecond average. A test asserts 100 rather than 50 for one measured and one unmeasured row._
+
+_**Aggregated in SQL, not Python.** The obvious version loads every analysis and counts in a loop — fine at ten rows, hopeless at ten thousand, since it transfers every row to count it. These are `GROUP BY` queries returning one row per class._
+
+_**Zero counts are present, not omitted.** A `GROUP BY` only returns groups that exist, so passing it through would give the UI `{"Safe": 3}` with no Direct Jailbreak key — rendering as a gap rather than a zero. **"No Indirect attacks yet" is information.** Every class and sub-type key is seeded to 0. Role Override genuinely reads 0 and the row should still show: the sub-type model never predicts it._
+
+_**Empty days appear in the chart.** A chart that silently drops quiet days compresses its x-axis and misleads._
+
+_Recent activity truncates prompt text to 80 chars — a 3,900-token attack must not arrive in a summary payload — and `GET /api/history` serves the full text. Scoped to the caller with no `user_id` parameter, same as history and profile._
+
+_A test parses `mocks/dashboard.js` and asserts the response covers every field the page renders._
 
 🟡 **Task 65** — `GET /api/admin/users` — **403 for non-admin**, driven by the Task 55 role dependency.
 

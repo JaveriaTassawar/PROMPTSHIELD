@@ -37,6 +37,8 @@ FOUR DECISIONS:
 
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
@@ -61,7 +63,11 @@ from app.schemas.analysis import (
     SafePromptRequest,
     SafePromptResponse,
 )
-from app.services.classifier import ClassifierUnavailable, classify_prompt
+from app.services.classifier import (
+    ClassifierUnavailable,
+    classify_prompt,
+    model_is_warm,
+)
 from app.services.guidance import build_guidance
 from app.services.mitigation import build_suggestion
 
@@ -94,6 +100,18 @@ def analyze_prompt(
     db.add(prompt)
     db.flush()  # assigns prompt_id without committing
 
+    # Measured around the model call only, not the HTTP round trip --
+    # that is what the SRS 4.1 budget of 200 ms applies to, and what the
+    # ML track measured at 4.7-10.9 ms. perf_counter rather than time()
+    # because it is monotonic: a clock adjustment mid-request would
+    # otherwise produce a negative duration.
+    # Whether the model was already loaded. The first call of a process
+    # pays a one-off ~2.4s checkpoint load, and recording that as a
+    # latency sample would put the dashboard average near 800 ms for a
+    # system whose steady-state is under 25 ms. Measured, excluded, and
+    # the reason is written down rather than the number quietly dropped.
+    was_warm = model_is_warm()
+    started = time.perf_counter()
     try:
         result = classify_prompt(payload.prompt)
     except ClassifierUnavailable:
@@ -113,6 +131,10 @@ def analyze_prompt(
             detail=str(exc),
         ) from exc
 
+    latency_ms = (
+        (time.perf_counter() - started) * 1000.0 if was_warm else None
+    )
+
     prompt.status = "analyzed"
 
     analysis = AnalysisResult(
@@ -121,6 +143,7 @@ def analyze_prompt(
         prompt_type=result.label,
         severity_level=result.severity,
         confidence_score=result.confidence,
+        latency_ms=latency_ms,
     )
     db.add(analysis)
     db.flush()

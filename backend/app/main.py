@@ -22,7 +22,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
-from app.routers import analysis, auth, health, simulation
+from app.routers import analysis, auth, dashboard, health, simulation
 
 API_TITLE = "PromptShield API"
 API_VERSION = "0.1.0"
@@ -60,6 +60,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(analysis.router)
     app.include_router(simulation.router)
+    app.include_router(dashboard.router)
 
     # Registered inside the factory, not on the module-level `app` below.
     # A decorator applied after create_app() returns would attach only to

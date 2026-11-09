@@ -112,6 +112,24 @@ def _load_classify():
     return _classify
 
 
+def model_is_warm() -> bool:
+    """True once the checkpoint is loaded into memory.
+
+    The first classify_prompt() call pays a one-off ~2.4s to load 268 MB
+    from disk; subsequent calls are 14-22 ms. Task 64 uses this to
+    exclude the cold-start measurement from the dashboard's average,
+    which would otherwise report ~800 ms for a system whose real
+    steady-state latency is under 25 ms -- a figure that is not just
+    unflattering but wrong, and that would contradict the ML track's own
+    measurement of 4.7-10.9 ms.
+    """
+    try:
+        from inference import classifier as wrapper
+    except ImportError:
+        return False
+    return getattr(wrapper, "_primary_model", None) is not None
+
+
 def classify_prompt(text: str) -> ClassificationResult:
     """Classify one prompt.
 
