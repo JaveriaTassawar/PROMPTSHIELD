@@ -6,6 +6,8 @@ backend TASKS.md quote.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, Field
 
 # Task 42 stores prompt_text as Text with no length cap, because real
@@ -129,3 +131,46 @@ class AvatarGuideResponse(BaseModel):
     keyDefence: str | None = None
     source: str = "backend"
     scope: str = "class"
+
+
+# Pagination. 20 is a screenful; the cap stops a client asking for the
+# whole table in one request, which on a busy account would be a slow
+# query and a large response for no benefit.
+DEFAULT_PAGE_SIZE = 20
+MAX_PAGE_SIZE = 100
+
+
+class HistoryItem(BaseModel):
+    """One past analysis, as the history list shows it."""
+
+    promptId: int
+    promptText: str
+    submittedAt: datetime
+    status: str
+
+    # Null while a prompt is still `pending` -- Task 56 stores the prompt
+    # before classifying, so a row can exist with no analysis if the model
+    # was unavailable. The UI must handle that rather than assume.
+    classification: str | None = None
+    subtype: str | None = None
+    subtypeReliable: bool | None = None
+    severity: str | None = None
+    confidenceScore: float | None = None
+    analysedAt: datetime | None = None
+    safePromptSuggestion: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HistoryResponse(BaseModel):
+    """A page of history.
+
+    `total` is the caller's full count, not the page length, so the UI can
+    render "showing 1-20 of 137" and decide whether to offer another page.
+    """
+
+    items: list[HistoryItem]
+    total: int
+    limit: int
+    offset: int
+    hasMore: bool

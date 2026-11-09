@@ -37,8 +37,9 @@ FOUR DECISIONS:
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
@@ -51,8 +52,12 @@ from app.models.user import User
 from app.schemas.analysis import (
     AnalyzeRequest,
     AnalyzeResponse,
+    DEFAULT_PAGE_SIZE,
+    MAX_PAGE_SIZE,
     AvatarGuideRequest,
     AvatarGuideResponse,
+    HistoryItem,
+    HistoryResponse,
     SafePromptRequest,
     SafePromptResponse,
 )
@@ -338,4 +343,106 @@ def avatar_guide(
         keyDefence=guidance.keyDefence,
         source=guidance.source,
         scope=guidance.scope,
+    )
+
+
+@router.get(
+    "/history",
+    response_model=HistoryResponse,
+    responses={401: {"description": "Missing or invalid token"}},
+)
+def history(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
+    offset: int = Query(0, ge=0),
+) -> HistoryResponse:
+    """The caller's own prompts and results, newest first.
+
+    Task 61.
+
+    FOUR DECISIONS:
+
+    1. FILTERED BY THE TOKEN, WITH NO user_id PARAMETER.
+
+       Same reasoning as Task 54's /api/profile: an endpoint taking a
+       user_id would need an authorisation check to stop one user
+       reading another's prompt history, and forgetting that check is
+       among the commonest API vulnerabilities. Taking the id from the
+       verified token makes the bug unexpressible.
+
+       Prompt history is the most sensitive data this system holds -- it
+       is a record of what each person typed, including their mistakes.
+
+    2. selectinload, NOT LAZY LOADING.
+
+       Each row needs its analysis, that analysis's sub-type, and its
+       suggestion. Loaded lazily that is four queries per row -- 81
+       queries for a 20-row page, and it degrades linearly with page
+       size. selectinload issues one query per relationship for the
+       whole page regardless of its length.
+
+    3. ORDERED BY submission_time DESC, THEN prompt_id DESC.
+
+       Timestamps come from the database clock at second resolution, so
+       two prompts submitted in the same second would otherwise return
+       in an arbitrary order -- which makes pagination skip or repeat
+       rows between pages. The id breaks the tie deterministically.
+
+    4. A PENDING PROMPT STILL APPEARS, WITH NULL ANALYSIS FIELDS.
+
+       Task 56 stores the prompt before classifying, so a row exists
+       with no analysis when the model was unavailable. Hiding those
+       would mean a user submits a prompt, sees a 503, and then cannot
+       find it in their history.
+    """
+    total = db.scalar(
+        select(func.count())
+        .select_from(Prompt)
+        .where(Prompt.user_id == user.user_id)
+    )
+
+    rows = db.scalars(
+        select(Prompt)
+        .where(Prompt.user_id == user.user_id)
+        .options(
+            # See decision 2 -- one query per relationship, not per row.
+            selectinload(Prompt.analysis).selectinload(AnalysisResult.subtype),
+            selectinload(Prompt.analysis).selectinload(AnalysisResult.suggestion),
+        )
+        .order_by(Prompt.submission_time.desc(), Prompt.prompt_id.desc())
+        .limit(limit)
+        .offset(offset)
+    ).all()
+
+    items = []
+    for prompt in rows:
+        analysis = prompt.analysis
+        subtype = analysis.subtype if analysis is not None else None
+        suggestion = analysis.suggestion if analysis is not None else None
+
+        items.append(
+            HistoryItem(
+                promptId=prompt.prompt_id,
+                promptText=prompt.prompt_text,
+                submittedAt=prompt.submission_time,
+                status=prompt.status,
+                classification=analysis.prompt_type if analysis else None,
+                subtype=subtype.subtype_name if subtype else None,
+                subtypeReliable=subtype.is_reliable if subtype else None,
+                severity=analysis.severity_level if analysis else None,
+                confidenceScore=analysis.confidence_score if analysis else None,
+                analysedAt=analysis.analysed_at if analysis else None,
+                safePromptSuggestion=(
+                    suggestion.suggested_prompt if suggestion else None
+                ),
+            )
+        )
+
+    return HistoryResponse(
+        items=items,
+        total=total or 0,
+        limit=limit,
+        offset=offset,
+        hasMore=(offset + len(items)) < (total or 0),
     )

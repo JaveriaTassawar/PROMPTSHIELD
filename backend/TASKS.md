@@ -473,7 +473,28 @@ _**Safe prompts get guidance** — unlike the Task 59 suggestion, which is `None
 
 _`promptId` is optional and checked against the caller, same as Task 59, with a test for the cross-user write. Regenerating updates the row rather than appending, honouring Task 47's unique constraint._
 
-🟡 **Task 61** — `GET /api/history` — JWT-protected, returns the caller's own prompts + results, newest first, paginated.
+✅ **Task 61** — `GET /api/history` — JWT-protected, returns the caller's own prompts + results, newest first, paginated. — **done**
+
+_**291 tests pass** (16 new)._
+
+_**No `user_id` parameter**, same reasoning as Task 54's `/api/profile`. One that took one would need an authorisation check to stop a user reading another's history, and omitting that check is among the commonest API vulnerabilities — taking the id from the verified token makes the bug **unexpressible**. A test asserts the parameter does not exist, because adding it later would be the natural way to reintroduce the hole._
+
+_This matters more here than anywhere else in the API: **prompt history is the most sensitive data the system holds** — a record of what each person typed, including their mistakes._
+
+_**`selectinload`, not lazy loading — 4 queries instead of 62.** Measured on a 20-row page:_
+
+```
+WITH    selectinload : 4 queries
+WITHOUT (lazy)       : 62 queries
+```
+
+_Each row needs its analysis, that analysis's sub-type, and its suggestion. Lazily that is four queries per row and it degrades **linearly with page size**. A test asserts the query count is *independent* of page size, which is the property that matters — counting exactly would be brittle._
+
+_**Ordered by `submission_time DESC, prompt_id DESC`.** Timestamps come from the database clock at second resolution, so two prompts submitted in the same second would return in an arbitrary order — which makes pagination **skip or repeat rows between pages**. The id breaks the tie deterministically, and a test paginates six same-second rows and asserts all six appear exactly once._
+
+_**A pending prompt still appears, with null analysis fields.** Task 56 stores the prompt before classifying, so a row exists with no analysis when the model was unavailable. Hiding those would mean a user submits a prompt, sees a 503, and then cannot find it in their history._
+
+_`total` is the caller's full count rather than the page length, so the UI can render "showing 1–20 of 137". `limit` is capped at 100 — a client must not be able to request the whole table in one request._
 
 ### Simulation / Analytics / Admin
 
