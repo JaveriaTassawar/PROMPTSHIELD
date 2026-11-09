@@ -89,13 +89,23 @@ def test_every_scenario_has_an_objective() -> None:
 def test_every_scenario_has_at_least_one_attack_turn() -> None:
     """Otherwise there is nothing to spot."""
     for spec in SCENARIOS:
-        assert any(t[2] for t in spec["turns"]), spec["slug"]
+        assert any(t[3] for t in spec["turns"]), spec["slug"]
 
 
 def test_turn_positions_start_at_one_and_are_contiguous() -> None:
     for spec in SCENARIOS:
         positions = sorted(t[0] for t in spec["turns"])
         assert positions == list(range(1, len(positions) + 1)), spec["slug"]
+
+
+def test_every_turn_declares_provenance() -> None:
+    """Marking authored text as dataset-sourced would overstate the
+    evidence behind a scenario."""
+    from app.models.scenario import TURN_ORIGINS
+
+    for spec in SCENARIOS:
+        for turn in spec["turns"]:
+            assert turn[2] in TURN_ORIGINS, f"{spec['slug']} turn {turn[0]}"
 
 
 def test_every_turn_role_is_valid() -> None:
@@ -108,7 +118,7 @@ def test_attack_turns_carry_an_annotation() -> None:
     """The annotation is the lesson. An unexplained attack turn teaches
     nothing."""
     for spec in SCENARIOS:
-        for position, _role, is_attack, annotation, _content in spec["turns"]:
+        for position, _role, _origin, is_attack, annotation, _content in spec["turns"]:
             if is_attack:
                 assert annotation and annotation.strip(), (
                     f"{spec['slug']} turn {position} is an attack with no "
@@ -123,7 +133,7 @@ def test_multi_turn_scenario_has_harmless_early_turns() -> None:
     multi = next(
         s for s in SCENARIOS if s["subtype"] == "Multi-Turn Manipulation"
     )
-    flags = [t[2] for t in sorted(multi["turns"], key=lambda t: t[0])]
+    flags = [t[3] for t in sorted(multi["turns"], key=lambda t: t[0])]
 
     assert len(flags) >= 3, "escalation needs several turns to be visible"
     assert flags[0] is False, "the opening turn should be genuinely harmless"
@@ -137,7 +147,7 @@ def test_indirect_scenarios_put_the_attack_in_external_content() -> None:
     for spec in SCENARIOS:
         if SUBTYPE_PARENT[spec["subtype"]] != "Indirect Injection":
             continue
-        attack_roles = {t[1] for t in spec["turns"] if t[2]}
+        attack_roles = {t[1] for t in spec["turns"] if t[3]}
         assert attack_roles <= EXTERNAL_ROLES, (
             f"{spec['slug']}: an indirect attack should arrive in external "
             f"content, not a user turn (got {attack_roles})"
@@ -168,7 +178,7 @@ def test_seeded_payloads_are_defanged() -> None:
         "api key", "private key", "exploit", "malware", "ransomware",
     )
     for spec in SCENARIOS:
-        for position, _role, _is_attack, _annotation, content in spec["turns"]:
+        for position, _role, _origin, _is_attack, _annotation, content in spec["turns"]:
             lowered = content.lower()
             for term in forbidden:
                 assert term not in lowered, (
