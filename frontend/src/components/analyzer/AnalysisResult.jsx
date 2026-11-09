@@ -129,7 +129,7 @@ function ResultSummary({ result, prompt, isStale, onAskAria }) {
   )
 }
 
-function AnalysisResult({ status, result, analyzedPrompt, isStale, onAskAria }) {
+function AnalysisResult({ status, result, analyzedPrompt, isStale, onAskAria, errorText}) {
   return (
     <section aria-labelledby="analysis-result-heading" aria-live="polite" aria-busy={status === 'analyzing'}>
       <h2 id="analysis-result-heading" className="mb-3 font-mono text-xs tracking-widest text-fg-subtle uppercase">
@@ -137,7 +137,9 @@ function AnalysisResult({ status, result, analyzedPrompt, isStale, onAskAria }) 
       </h2>
       {status === 'idle' && <EmptyState />}
       {status === 'analyzing' && <ScanningState />}
-      {status === 'error' && <Alert variant="error">Analysis failed. Please try again.</Alert>}
+      {status === 'error' && (
+        <Alert variant="error">{errorText || 'Analysis failed. Please try again.'}</Alert>
+      )}
       {status === 'success' && (
         <ResultSummary result={result} prompt={analyzedPrompt} isStale={isStale} onAskAria={onAskAria} />
       )}

@@ -19,7 +19,7 @@ const NAV_ITEM = findNavItem('/analyzer')
 // result area, then Aria's guidance for the result (Task 81).
 function AnalyzerPage() {
   const [prompt, setPrompt] = useState('')
-  const { status, result, analyzedPrompt, analyze } = usePromptAnalysis()
+  const { status, result, analyzedPrompt, errorText, analyze } = usePromptAnalysis()
   const guidance = useAriaGuidance(status === 'success' ? result : null)
   const resultRef = useRef(null)
   const ariaHeadingRef = useRef(null)
@@ -102,6 +102,7 @@ function AnalyzerPage() {
           status={status}
           result={result}
           analyzedPrompt={analyzedPrompt}
+          errorText={errorText}
           isStale={isStale}
           onAskAria={guidance ? focusAria : undefined}
         />

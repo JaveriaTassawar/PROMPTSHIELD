@@ -1,5 +1,7 @@
 import { Suspense, lazy } from 'react'
 import { Routes, Route } from 'react-router-dom'
+import { AuthProvider } from './auth/AuthContext.jsx'
+import { RequireAuth } from './auth/RequireAuth.jsx'
 import AmbientBackground from './components/AmbientBackground.jsx'
 import AppLayout from './components/AppLayout.jsx'
 import AuthLayout from './components/AuthLayout.jsx'
@@ -22,7 +24,7 @@ const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage.jsx'))
 
 function App() {
   return (
-    <>
+    <AuthProvider>
       <AmbientBackground />
       <Routes>
         <Route path="/" element={<HomePage />} />
@@ -30,6 +32,10 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
         </Route>
+        {/* Everything below needs a session (Task 73). RequireAuth sits
+            OUTSIDE AppLayout so an anonymous visitor never sees the
+            sidebar flash before being redirected. */}
+        <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/analyzer" element={<AnalyzerPage />} />
@@ -49,9 +55,10 @@ function App() {
           {/* URL-only (not in the sidebar) until authentication and roles exist — Task 90. */}
           <Route path="/admin" element={<AdminPage />} />
         </Route>
+        </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
-    </>
+    </AuthProvider>
   )
 }
 

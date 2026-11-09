@@ -125,6 +125,48 @@ class AnalysisResult(Base):
         "Prompt", back_populates="analysis"
     )
 
+    # The 8-class sub-type prediction (Task 44). Null for Safe prompts, and
+    # null whenever the optional sub-type model is not configured -- see
+    # ml/inference/classifier.py, which returns subtype=None rather than
+    # failing in that case.
+    subtype: Mapped["AttackSubtype | None"] = relationship(  # noqa: F821
+        "AttackSubtype",
+        back_populates="analysis",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    # A list, not a single row: one prompt can be warned about and then
+    # rewritten, or blocked after a warning. See MitigationAction
+    # decision 1 -- collapsing these would lose the audit trail.
+    mitigations: Mapped[list["MitigationAction"]] = relationship(  # noqa: F821
+        "MitigationAction",
+        back_populates="analysis",
+        cascade="all, delete-orphan",
+        order_by="MitigationAction.action_time",
+    )
+
+    # The API's `safePromptSuggestion` field reads from HERE, not from a
+    # rewriting MitigationAction. See app/models/suggestion.py for why the
+    # two overlap and which is which: mitigations are an audit log of what
+    # the system did; this is the teaching advice shown to the user.
+    suggestion: Mapped["SafeSuggestion | None"] = relationship(  # noqa: F821
+        "SafeSuggestion",
+        back_populates="analysis",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    # Feeds `avatarFeedback`. Optional: the frontend currently renders fixed
+    # per-class copy from its own config and only starts calling the backend
+    # at Task 82 -- so Task 56 must treat this as absent-able, like subtype.
+    guidance: Mapped["AvatarGuidance | None"] = relationship(  # noqa: F821
+        "AvatarGuidance",
+        back_populates="analysis",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
     __table_args__ = (
         CheckConstraint(
             "prompt_type IN ('" + "', '".join(PROMPT_TYPES) + "')",

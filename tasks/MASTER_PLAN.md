@@ -286,32 +286,32 @@ _Independent track — can start immediately, in parallel with ML. Branch prefix
 ✅ Task 41 — Model: User — **done** (45 tests pass, migration `49db872b27a3`, upgrade/downgrade verified. **Column named `password_hash`, not `password`** — the plan said `password`, which invites storing plaintext at the Task 50 call site and would pass every test. Email case-folded via `normalise_email()`, since a UNIQUE index alone treats `Jawaria@` and `jawaria@` as two accounts — **Task 50 must normalise on login too**. Role CHECK-constrained to the four Task 55 values so a typo cannot silently strip access. Added `is_active` so an admin can disable an account without deleting history the Tasks 60–63 analytics need)
 ✅ Task 42 — Model: Prompt — **done** (59 tests pass, migration `2ec02dd6e931`. **⚠️ Found that SQLite was silently ignoring every foreign key** — it ships with `PRAGMA foreign_keys=OFF` per connection, so orphan rows inserted cleanly; proven and fixed with a connect listener in `database.py`. Would have worked locally and broken on Postgres, which enforces FKs unconditionally. `ondelete=SET NULL` not CASCADE, so deleting a user anonymises prompts rather than destroying the history Tasks 60–63 aggregate. `prompt_text` is `Text` — real attacks reach 3,923 tokens and a VARCHAR cap would truncate the long persona/multi-turn prompts. `status` CHECK-constrained)
 ✅ Task 43 — Model: AnalysisResult — **done** (79 tests pass, migration `35be3efd8cb0`. **The 3-class labels are duplicated from the ML package rather than imported** — importing would pull torch into the API process — **with a test that parses `ml/training/dataset.py` and fails on drift in either direction**; verified it catches an added label. Without it the classifier could return a label the CHECK rejects and every attack analysis would 500. `confidence_score` constrained to 0..1 so a percentage written for a probability cannot silently skew every average. `prompt_id` UNIQUE — one analysis per prompt, else the dashboard double-counts. FK CASCADEs here, unlike Prompt→User, because an analysis without its prompt is meaningless. **`severity_level` values had to be invented — the plan only ever shows "High"**)
-🔵 Task 44 — Model: AttackSubtype — **next up** (subtype_name stores one of the 8 sub-type names from "Corrections" section 1 — the 5 Direct Jailbreak ones or the 3 Indirect Injection ones; nullable, since Safe results have no sub-type)
-🟡 Task 45 — Model: MitigationAction
-🟡 Task 46 — Model: SafeSuggestion
-🟡 Task 47 — Model: AvatarGuidance
-🟡 Task 48 — Model: SimulationSession
-🟡 Task 49 — Model: LearningProgress
+✅ Task 44 — Model: AttackSubtype — **done** (101 tests pass, migration `926713d73a9c`. 8 sub-type strings duplicated from the ML package with a drift test — **which caught a real failure on first run** (my regex assumed a tuple, the ML file uses a list). `SUBTYPE_PARENT` + `is_valid_for()` stop "Policy Evasion" being stored under an Indirect Injection analysis, which a plain CHECK would accept. **`UNRELIABLE_SUBTYPES` encodes the Role Override finding in code** — 0.00 F1, never predicted, 14 of 18 land as Policy Evasion — so Task 56 and the UI can qualify it rather than trusting it. Separate nullable `confidence`, since the sub-type head is a different model) (subtype_name stores one of the 8 sub-type names from "Corrections" section 1 — the 5 Direct Jailbreak ones or the 3 Indirect Injection ones; nullable, since Safe results have no sub-type)
+✅ Task 45 — Model: MitigationAction — **done** (115 tests pass, migration `da76a18a6ead`. **All five DB models complete.** This FK is deliberately NOT unique, unlike Tasks 43/44 — one prompt can be warned about and then rewritten, and forcing one row would overwrite the audit trail this table exists for. A `rewriting` action with no rewritten text is CHECK-rejected, since that is a bug not a state. `Prompt.prompt_text` is never overwritten — the original is what the analytics and any audit need)
+✅ Task 46 — Model: SafeSuggestion — **done** (126 tests pass, migration `d08f96bbb4b6`. **Resolved an overlap with Task 45**: a `rewriting` MitigationAction also stores a rewritten prompt, so two tables could hold "a safer version". The split is now explicit — MitigationAction is the audit log of what the system *did*; SafeSuggestion is the teaching advice, and **the API `safePromptSuggestion` field reads from SafeSuggestion**. `suggestion_reason` is NOT NULL, since a suggestion without reasoning is a rewrite not a lesson)
+✅ Task 47 — Model: AvatarGuidance — **done** (138 tests pass, migration `b750a18e0179`. **⚠️ Found the frontend does not consume this table yet** — `AriaGuidancePanel.jsx` renders fixed per-class copy from its own config and only calls the backend at Task 82, so Aria currently says the same thing for every Direct Jailbreak. **Task 56 must treat guidance as optional**, like sub-type. Also: the frontend guidance object is richer (`summary/why/nextSteps/do/dont/keyDefence`) than this table`s two fields — **Task 82 must flatten or extend**. `displayed_at` records when the user *saw* it, not creation, so the analytics can tell whether anyone reads it)
+✅ Task 48 — Model: SimulationSession — **done** (162 tests pass. NULL `outcome` is a real state — "in progress", distinct from `abandoned`. `end_time >= start_time` CHECK-enforced, else the analytics get negative durations. `difficulty` reuses the frontend`s Beginner/Intermediate/Advanced so Task 62 needs no remapping. **This FK CASCADEs unlike Prompt→User** — a session is personal progress, not evidence)
+✅ Task 49 — Model: LearningProgress — **done** (**all nine DB models complete**. `(user_id, module_name)` UNIQUE, else re-opening a module inflates every completion count. `completed_at` must agree with `comp_status` both ways — **and that CHECK caught a real bug in my own `mark_complete()`**: SQLAlchemy autoflush fires between two assignments, so setting status before timestamp briefly hit the DB in the forbidden state. **Set `completed_at` first**)
 
 ### Backend (Jawaria) — Auth Endpoints
 _Depends only on Task 41 (User model), not on ML._
 
-🔴 Task 50 — POST /api/register (+hash password) — **needs Task 41 merged (User model must exist)**
-🟡 Task 51 — Reject duplicate email
-🟡 Task 52 — POST /api/login (JWT)
-🟡 Task 53 — Reject wrong password
-🟡 Task 54 — GET /api/profile (JWT-protected)
-🟡 Task 55 — Role field (student/developer/researcher/admin)
+✅ Task 50 — POST /api/register (+hash password) — **done** (179 tests pass; verified live. **⚠️ Swapped passlib for bcrypt directly** — passlib 1.7.4 reads `bcrypt.__about__` which bcrypt 5.0 removed, so every hash call raised; passlib last released 2020. Same `$2b$` stored format, no migration needed. **bcrypt`s 72-byte limit is rejected not truncated** — two long passwords sharing a prefix would otherwise unlock each other. Response lists fields explicitly so a column added later cannot leak. **✅ privilege escalation found and FIXED — anyone could register as `admin` by posting the role directly; now validated against `SELF_ASSIGNABLE_ROLES`. Also found the frontend offers `organization`, which the CHECK rejected — added, via a **hand-written** migration because **Alembic does not diff CHECK constraints** and autogenerate produced an empty file**)
+✅ Task 51 — Reject duplicate email with **409** — **done** (409 not 400: the request was well-formed and failed on existing state, and the frontend must distinguish "email taken" from "check your details". Pre-check **and** a caught IntegrityError, so the two-request race does not 500 the loser — rare on SQLite, real on Postgres. Case-insensitive via `normalise_email()`)
+✅ Task 52 — POST /api/login (JWT) — **done** (199 tests pass. **Same 401 for unknown email and wrong password**, so the endpoint cannot enumerate accounts — and the password is verified even when no user matched, since returning early is measurably faster and enumerable by timing. Deactivated account gets 403, but only after the password checks out, else the 403 reveals the account exists. `sub` is a string per RFC 7519; `decode_token()` returns None rather than raising. Forged-signature and payload-swap tests included. **⚠️ Task 55: role travels in the token, so a demotion lags until expiry — read from the DB if immediate revocation is needed**)
+✅ Task 53 — Reject wrong password — **done** (delivered with Task 52 — same status *and* same detail string for both cases, plus timing equalisation)
+✅ Task 54 — GET /api/profile (JWT-protected) — **done** (215 tests pass. **Takes no `user_id` parameter on purpose** — one that did would need an authorisation check to stop user 1 reading user 2, and forgetting it is among the commonest API bugs; reading the id from the token makes it unexpressible. Missing header returns 401 not FastAPI`s default 403. **Deactivation takes effect on the next request**, not at token expiry)
+✅ Task 55 — Role field, reusable dependency — **done** (`require_roles()` factory keeps the allowed set beside the endpoint. **⚠️ Resolved the Task 52 staleness warning: the role is read from the DB, never the token** — a demoted admin loses access on the next request, and a correctly-signed token *claiming* admin is still refused. 403 not a concealing 404, since the routes are in the OpenAPI schema anyway)
 
 **🔴 Frontend Tasks 71–73 (wiring Register/Login/route guard) depend on Tasks 50/52/54 being merged. Frontend UI-only Tasks 69–70 do not — see Dependency Map join point #3.**
 
 ### Backend (Jawaria) — Prompt Analysis Endpoints
 _Task 56 is the hard ML dependency — see join point #1 above._
 
-🔴 Task 56 — POST /api/analyze-prompt (safe prompt test) — **needs Task 37 merged (or a stubbed classifier — see note above)**
-🟡 Task 57 — Store AnalysisResult row
-🟡 Task 58 — Test with jailbreak-style prompt
-🟡 Task 59 — POST /api/safe-prompt
+✅ Task 56 — POST /api/analyze-prompt — **done** (232 tests pass. **torch is deliberately NOT in the backend venv** — the import is lazy and a missing model is **503, not a startup crash**; the suite stays at ~50s and the API runs without 2 GB of ML dependencies. Verified against the real model from the ML venv: Safe/Direct Jailbreak both correct, no taxonomy drift. **The prompt is stored before classification** so a model failure does not lose it. One transaction for prompt+analysis+subtype. Oversized input 422 at the edge. `.env.example` corrected)
+✅ Task 57 — Store AnalysisResult row — **done** (delivered with Task 56; prompt + analysis + sub-type commit as one transaction so a partial write cannot leave an analysed prompt with no analysis)
+✅ Task 58 — Test with jailbreak-style prompt — **done** (`test_stored_row_matches_the_response` compares the stored row against the returned body field by field — checking each separately can both pass while they disagree)
+🔵 Task 59 — POST /api/safe-prompt
 🟡 Task 60 — POST /api/avatar-guide
 🟡 Task 61 — GET /api/history
 
@@ -330,20 +330,20 @@ _Independent track — can start immediately, in parallel with ML and Backend. B
 🟡 Task 68 — Tailwind config
 🟡 Task 69 — Login page UI
 🟡 Task 70 — Register page UI
-🔴 Task 71 — Wire Register — **needs Task 50 merged**
-🔴 Task 72 — Wire Login (JWT storage) — **needs Task 52 merged**
-🔴 Task 73 — Route guard — **needs Task 54 merged**
+✅ Task 71 — Wire Register — **done** (posts `name`/`email`/`password`/`role`, then signs in with the same credentials so the user does not type them twice. 409 and 422 are unwrapped into a readable message)
+✅ Task 72 — Wire Login (JWT storage) — **done** (axios interceptor attaches the token; a 401 clears the session but a **403 does not**, else an admin visiting one forbidden page gets logged out. The interceptor notifies a handler rather than navigating, keeping the HTTP client independent of the router. **⚠️ `localStorage` is a documented trade-off** — survives refresh, readable by any script, so XSS becomes a stolen session)
+✅ Task 73 — Route guard — **done** (**the stored token is verified against `GET /api/profile` before it is trusted** — it may be expired or the account deactivated since. `status` is three-valued, not boolean: with a boolean the first render after F5 looks like logged-out and the guard bounces an authenticated user to Login — the commonest bug in hand-rolled guards)
 
 ### Frontend (Rana) — Prompt Analyzer & Detection Result
 _UI tasks (74-75, 77-79) can be built against a mocked JSON response shaped like SDS §6.5's sample and don't need to wait on Backend. Only Task 76 (wiring) needs Task 56 merged — see join point #2._
 
 🔵 Task 74 — Dashboard shell
 🟡 Task 75 — Prompt Analyzer UI
-🔴 Task 76 — Wire Analyze button — **needs Task 56 merged**
+✅ Task 76 — Wire Analyze button — **done** (one file changed; the hook was already isolated. **The mock fell through to "Direct Jailbreak" for any unrecognised prompt** — which is why innocent questions looked misclassified; the model was never involved. Real results now: adventure question → Safe 1.000, DAN → Direct Jailbreak 0.999. torch installed in the backend venv, so the suite runs **233 tests with none skipped**. A 503 reads as "model not running, prompt saved", not a failure)
 🔵 Task 77 — Detection Result — Safe state _(buildable with mock data any time — doesn't strictly need Task 75 first, but grouped here for flow)_
 🔵 Task 78 — Detection Result — Direct Jailbreak state (show sub-type from "Corrections" section 1 if available) _(buildable with mock data)_
 🔵 Task 79 — Detection Result — Indirect Injection state _(buildable with mock data)_
-🔴 Task 80 — Confirm all 3 states — **needs Task 76 wired for a real end-to-end check**, though the UI itself can be visually confirmed earlier with mock data
+🔵 Task 80 — Confirm all 3 states — **unblocked** (Task 76 is wired; Safe and Direct Jailbreak both confirmed against the real model. **Indirect Injection still needs checking** — and note ML Task 36 found the model scored 0/3 on hand-written indirect prompts, so pick a realistic one)
 
 ### Frontend (Rana) — Avatar Guidance & Simulation Lab
 

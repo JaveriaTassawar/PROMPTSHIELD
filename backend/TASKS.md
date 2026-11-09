@@ -34,6 +34,22 @@ Every analysis response uses the taxonomy owned by [`../ml/TASKS.md`](../ml/TASK
 - `subtype` — one of the 8 sub-types, or `null` for Safe:
   - Direct Jailbreak → Policy Evasion · Multi-Turn Manipulation · Role Override · Persona Hijacking · System Prompt Overwrite
   - Indirect Injection → Document Embedding · Web Content Injection · Tool Output Injection
+- `severity` — one of **`Low`**, **`Medium`**, **`High`**, **`Critical`**
+
+### Severity vocabulary — pinned here (Task 43)
+
+The SRS and SDS never enumerate severity; the sample below shows only `"High"`. These four values were therefore **chosen at Task 43** and are now the contract, enforced by a CHECK constraint on `analysis_results.severity_level`.
+
+| Value | Meaning | Default for |
+|---|---|---|
+| `Low` | No threat detected | **Safe** |
+| `Medium` | Attack pattern present but low-confidence or low-impact | — |
+| `High` | Confident attack detection | **Direct Jailbreak**, **Indirect Injection** |
+| `Critical` | Reserved for Task 57 mitigation to escalate | — |
+
+**Frontend (Task 78) must use exactly these strings.** The frontend has not implemented severity yet — its code defers it to Tasks 78–82 and deliberately avoids inventing a vocabulary — so there is no existing conflict. Anything outside this set is rejected by the database, so a badge built against e.g. `"Severe"` would break on a real response.
+
+**To change the set:** edit `SEVERITY_LEVELS` in `backend/app/models/analysis.py`, generate a migration, and update this table. One place, three steps.
 
 Sample response shape (per SDS §6.5):
 ```json
@@ -190,46 +206,236 @@ _**`severity_level` had to be invented** — the plan shows only `"High"` in one
 
 _Also added `explanation` (nullable Text) for Task 57's mitigation note, and a composite index on `(prompt_type, analysed_at)` for the Tasks 60–63 "how many of each class over time" queries._
 
-🔵 **Task 44** — Model: **AttackSubtype** — `subtype_id` PK, `analysis_id` FK (nullable), `subtype_name` (**one of the 8 sub-types above**; null for Safe), `type_description`. — **next up**
+✅ **Task 44** — Model: **AttackSubtype** — `subtype_id` PK, `analysis_id` FK (nullable), `subtype_name` (**one of the 8 sub-types above**; null for Safe), `type_description`. — **done**
 
-🟡 **Task 44** — Model: **AttackSubtype** — `subtype_id` PK, `analysis_id` FK (nullable), `subtype_name` (**one of the 8 sub-types above**; null for Safe), `type_description`.
+_`app/models/subtype.py`, migration `926713d73a9c`. **101 tests pass** (22 new)._
 
-🟡 **Task 45** — Model: **MitigationAction** — `mitigation_id` PK, `analysis_id` FK, `action_type` (warning / blocking / rewriting), `action_description`, `mitigated_prompt`, `action_time`.
+_**The 8 sub-type strings are duplicated from `ml/training/subtype_dataset.py`** with a drift test, same reasoning as Task 43. **The test caught a real failure on first run** — my regex assumed a tuple, the ML file uses a list. Names matched; the test was wrong. Fixed to accept either container, and verified it still fails on a renamed sub-type._
 
-🟡 **Task 46** — Model: **SafeSuggestion** — `suggestion_id` PK, `analysis_id` FK, `suggested_prompt`, `suggestion_reason`, `generated_at`.
+_**`SUBTYPE_PARENT` maps each sub-type to its 3-class label**, with `is_valid_for()` for Task 56 to call before storing. A plain CHECK on `subtype_name` alone would happily accept **"Policy Evasion" under an Indirect Injection analysis**, which is nonsense. Not enforced in the database because the parent class lives on another table and a cross-table CHECK is not portable — enforced at the write path instead._
 
-🟡 **Task 47** — Model: **AvatarGuidance** — `guidance_id` PK, `analysis_id` FK, `message_text`, `explanation`, `displayed_at`.
+_**⚠️ `UNRELIABLE_SUBTYPES` encodes the Role Override finding in code, not just prose.** ML Task 34 measured the sub-type head at **0.00 F1 on Role Override — never predicted, 0 of 18**, with **14 of those 18 landing as Policy Evasion**. So a stored `"Policy Evasion"` may in fact be Role Override._
 
-🟡 **Task 48** — Model: **SimulationSession** — `simulation_id` PK, `user_id` FK, `scenario_name`, `description`, `start_time`, `end_time`, `outcome`.
+_`is_reliable` and `reliability_note` expose that on the model, so **Task 56 and the UI can qualify a sub-type instead of presenting it with the same authority as the 3-class label**. See `ml/MODEL_CARD.md` §19.7._
 
-🟡 **Task 49** — Model: **LearningProgress** — `progress_id` PK, `user_id` FK, `module_name`, `comp_status`, `completed_at`.
+_**`confidence` is a separate nullable column**, not reused from Task 43. The sub-type head is a *different model* with its own softmax; storing both in one column would conflate unrelated numbers. Nullable because the sub-type model is optional — `ml/inference/classifier.py` returns `subtype=None` when it is not configured._
+
+_`analysis_id` stays nullable per the plan (a sub-type may be seeded for a Task 62 simulation before any analysis exists) but is **unique**, so one analysis cannot accumulate several rows and make the dashboard count one attack as many._
+
+✅ **Task 45** — Model: **MitigationAction** — `mitigation_id` PK, `analysis_id` FK, `action_type` (warning / blocking / rewriting), `action_description`, `mitigated_prompt`, `action_time`. — **done**
+
+_`app/models/mitigation.py`, migration `da76a18a6ead`. **115 tests pass** (14 new). **All five DB models are complete — Tasks 41–45.**_
+
+_**This FK is deliberately NOT unique, unlike Tasks 43 and 44.** One prompt can be warned about *and then* rewritten, or blocked after a warning. Forcing one row would make the second action overwrite the first — and the audit trail is the entire point of this table. The relationship orders by `action_time` so it reads in the order things happened._
+
+_**A `rewriting` action with no rewritten text is rejected** by a CHECK constraint. That is a bug, not a state, and without the constraint Task 57 could silently record an empty rewrite that the UI would render as a blank "safe version"._
+
+_**`Prompt.prompt_text` is never overwritten.** The rewrite lives here; the original stays on the prompt, because the Tasks 60–63 analytics and any audit need what the user actually typed. Tested explicitly._
+
+_**Append-only by convention** — nothing enforces it in SQL, but Task 57 should insert, never update. Rewriting history is exactly what an audit trail must not permit._
+
+_`mitigated_prompt` is `Text` and nullable: a rewrite is as long as the original (~3,900 tokens measured in the ML work), and only `rewriting` produces one — keeping it null makes "was this rewritten?" answerable without comparing strings._
+
+---
+
+### ✅ DB Models complete — Tasks 38–45 all done
+
+115 tests, 5 migrations, 5 tables. **Task 50 (`POST /api/register`) is unblocked** — it needed Task 41.
+
+**Two things Task 50 must honour, both decided at Task 41:**
+1. Hash with bcrypt into `password_hash`. The column is named that way so assigning a raw password reads wrong at the call site.
+2. Call `normalise_email()` on **register and login**. Normalising only on write leaves the user unable to log in with different casing.
+
+
+
+✅ **Task 46** — Model: **SafeSuggestion** — `suggestion_id` PK, `analysis_id` FK, `suggested_prompt`, `suggestion_reason`, `generated_at`. — **done**
+
+_`app/models/suggestion.py`, migration `d08f96bbb4b6`. **126 tests pass** (11 new)._
+
+_**⚠️ OVERLAP WITH TASK 45 — resolved here, read before writing Task 56 or 57.** `MitigationAction` with `action_type='rewriting'` also stores a rewritten prompt. Two tables can hold "a safer version of this prompt", and without a rule Task 56 would have two places to read `safePromptSuggestion` from and could pick differently in different endpoints._
+
+| Table | Holds | Answers |
+|---|---|---|
+| `MitigationAction.mitigated_prompt` | what the system **did** | "what action was taken, and when" — audit log, append-only, several per analysis |
+| `SafeSuggestion.suggested_prompt` | what the user **should have written** | "show me a better prompt" — teaching material, one per analysis |
+
+_**The API's `safePromptSuggestion` field reads from `SafeSuggestion`.** A `rewriting` MitigationAction is written alongside when the system actually substituted text, and the two often agree — but one is a log entry and the other is advice. A test stores both and asserts they stay independently reachable._
+
+_**`suggestion_reason` is NOT NULL.** The project exists to teach secure prompting; a suggestion with no explanation of *why* it is safer is a rewrite, not a lesson, and the Task 47 avatar would have nothing to narrate._
+
+_`analysis_id` is unique — regenerating should update the row, not append a second one the API has to choose between._
+
+_No CHECK compares the suggestion to the original (the original is on another table and cross-table CHECKs are not portable). **Task 57 should refuse to store a suggestion identical to the input.**_
+
+✅ **Task 47** — Model: **AvatarGuidance** — `guidance_id` PK, `analysis_id` FK, `message_text`, `explanation`, `displayed_at`. — **done**
+
+_`app/models/guidance.py`, migration `b750a18e0179`. **138 tests pass** (12 new)._
+
+_**⚠️ CONTRACT MISMATCH FOUND — the frontend does not consume this table yet.** `AriaGuidancePanel.jsx` renders **fixed per-class copy** from `frontend/src/config/ariaGuidance.js`, whose own header states:_
+
+> _"Fixed educational content written for each classification… It is **NOT** generated by a model or the backend and never refers to the specific prompt. **Task 82** will add guidance from `POST /api/avatar-guide`."_
+
+_So Aria currently says the same thing for every Direct Jailbreak. This table is what lets Task 82 replace that with guidance about *this* prompt. Rows are stored but not displayed until then — correct order, since the backend must exist before the frontend can call it._
+
+_**Two consequences for Task 56:**_
+1. _**Treat guidance as optional in the response**, exactly as it already treats sub-type. Nothing breaks when the table is empty — there is a test for that._
+2. _**The frontend's guidance object is richer than this table.** It has `summary / whyTitle / why / nextSteps[] / do[] / dont[] / keyDefence`; this table has `message_text` + `explanation`. **Task 82 must either flatten that shape into two fields or extend the table.** Flagged now rather than discovered then._
+
+_**`displayed_at` is not a creation timestamp.** The plan names it `displayed_at`, so it records when the user actually *saw* the guidance — a different question from when it was generated, and the only way the Tasks 60–63 analytics can tell whether anyone reads it. `generated_at` records creation separately, and `mark_displayed()` is idempotent so re-serving does not overwrite the first-seen time._
+
+_Both `message_text` and `explanation` are required: guidance with no explanation is a notification, not teaching, and teaching is the avatar's stated purpose in the project title._
+
+✅ **Task 48** — Model: **SimulationSession** — `simulation_id` PK, `user_id` FK, `scenario_name`, `description`, `start_time`, `end_time`, `outcome`. — **done**
+
+_`app/models/simulation.py`, migration `3b3e1cf60111` (shared with Task 49). **162 tests pass.**_
+
+_**NULL `outcome` is a real state, not missing data** — "started, not finished", distinct from `abandoned`. One is a user still working, the other gave up, and the Tasks 60–63 analytics must not conflate them._
+
+_**`end_time >= start_time` is CHECK-enforced.** Catches clock problems and transposed arguments; without it a session that ended before it began silently produces **negative durations** in the analytics._
+
+_**`difficulty` reuses the frontend's existing labels** — `Beginner` / `Intermediate` / `Advanced` from `frontend/src/config/simulation.js`, which notes "Backend Task 62 may replace it". Same strings means Task 62 can seed scenarios with no remapping._
+
+_**This FK CASCADEs, unlike `Prompt → User`.** Deliberate: a prompt is evidence the analytics aggregate over, so it survives its user anonymised; a training session is personal progress with no meaning detached from the person, and orphans would inflate completion counts for users who no longer exist._
+
+
+
+✅ **Task 49** — Model: **LearningProgress** — `progress_id` PK, `user_id` FK, `module_name`, `comp_status`, `completed_at`. — **done**
+
+_`app/models/progress.py`. **All nine DB models are now complete.**_
+
+_**`(user_id, module_name)` is UNIQUE** — the schema's first composite unique constraint. Without it, re-opening a module appends a row and every completion count inflates: a progress bar reading over 100%._
+
+_**`completed_at` must agree with `comp_status`, both directions.** A completed module must carry a timestamp; an unfinished one must not. Otherwise a module could read `in_progress` while holding a completion date, which Task 63 would count as finished._
+
+_**⚠️ That constraint caught a real bug in my own code.** `mark_complete()` originally set the status first, then the timestamp. SQLAlchemy's **autoflush fires between two assignments**, so the row briefly hit the database as `completed` with a null timestamp and the flush failed. Fixed by setting the timestamp first. **Any code touching both fields must set `completed_at` before `comp_status`** — an ordering bug that would otherwise surface only intermittently, under load._
+
+_`not_started` is stored explicitly rather than as a missing row, so "has this user opened this module?" and "have they finished it?" stay separate queries._
+
+---
+
+### ✅ All nine DB models complete — Tasks 38–49
+
+162 tests · 8 migrations · 9 tables, all verified to tear down and rebuild cleanly. **Auth endpoints (Tasks 50–55) are next.**
 
 ### Auth Endpoints
 
-🔴 **Task 50** — `POST /api/register` — hash the password with bcrypt, never store plaintext — **needs Task 41 merged**. Returns 201.
+✅ **Task 50** — `POST /api/register` — hash the password with bcrypt, never store plaintext. Returns 201. — **done**
 
-🟡 **Task 51** — Reject duplicate email with **409** (or 400 — pick one and keep it consistent; document it).
+_`app/routers/auth.py`, `app/schemas/auth.py`, `app/core/security.py`. **179 tests pass** (17 new). Verified live, not just in tests — see the session below._
 
-🟡 **Task 52** — `POST /api/login` — verify the hash, return a JWT. Token carries `user_id` and `role`.
+_**⚠️ DEPENDENCY SWAP: `bcrypt` directly, not `passlib`.** The plan named passlib and it was tried first. **It does not work**: passlib 1.7.4 reads `bcrypt.__about__.__version__`, which bcrypt 5.0 removed, so every hash call raises before producing anything. passlib's last release was 2020._
 
-🟡 **Task 53** — Reject wrong password with **401**. Same generic message for "wrong password" and "no such user" — don't leak which emails exist.
+_Using bcrypt directly removes an unmaintained package from the auth path and costs about ten lines. **The stored format is identical** — a standard `$2b$` hash — so nothing downstream changes and passlib could be reintroduced later without a migration. passlib has been uninstalled and `requirements.txt` updated._
 
-🟡 **Task 54** — `GET /api/profile` — JWT-protected; 401 without a valid token.
+_**bcrypt's 72-byte limit is rejected, not truncated.** bcrypt ignores input past 72 **bytes**, so two long passwords sharing their first 72 bytes hash identically and **each would unlock the other's account**. Over-long input returns 422 rather than being silently shortened. Bytes, not characters — a non-ASCII password hits the limit sooner than its length suggests._
 
-🟡 **Task 55** — Role field: `student` / `developer` / `researcher` / `admin`, enforced by a reusable dependency.
+_**The response lists its fields explicitly** rather than serialising the ORM object. If it did the latter, any sensitive column added to `User` later would leak through this endpoint with no code change and nothing failing. A test asserts `password_hash` is absent._
+
+_**`verify_password()` never raises.** A malformed or legacy hash returns `False`, not a 500 — a failed login is the right answer either way, and an exception would tell a prober that this particular account is unusual._
+
+_Live check:_
+```
+POST /api/register  {"email": "Jawaria@UCP.edu.pk", ...}   -> 201
+  stored email: jawaria@ucp.edu.pk        (case-folded)
+  stored hash : $2b$12$drrmBcsEQ8cs9UAyH/Hq7u...
+
+POST /api/register  {"email": "jawaria@ucp.edu.pk", ...}   -> 409
+```
+
+_**✅ PRIVILEGE ESCALATION — found and fixed.** The endpoint originally honoured the `role` the frontend posts, so **anyone could register as `admin`** by sending that value directly, bypassing the form. Closed by validating against a new `SELF_ASSIGNABLE_ROLES` constant (every role except `admin`) rather than `USER_ROLES`. A form is not a security control — `RegisterPage.jsx` already omits admin from its options, and this is the server-side enforcement of that. Two tests cover it, including that no admin row exists after an attempt._
+
+_**Also found: a role the database rejected.** The frontend offers four options — `student`, `developer`, `researcher`, **`organization`** — but the plan's Task 55 list and the CHECK constraint had only the first three plus `admin`. **Choosing "Organization" in the live form returned a 422.** Added `organization` to `USER_ROLES`, since the frontend option is a product decision and the backend list was an implementation detail. A test now asserts every option the form offers is accepted._
+
+_**⚠️ That fix needed a hand-written migration (`dd6fb3d909b5`).** `--autogenerate` produced an **empty** file: **Alembic does not diff CHECK constraints.** It compares tables, columns, indexes and foreign keys, and a changed CHECK is invisible to it. The Python constant and the database had silently diverged. **Any future CHECK change needs a hand-written migration** — autogenerate will report "no changes detected" and be wrong._
+
+✅ **Task 51** — Reject duplicate email with **409** — **done**
+
+_**409 Conflict, not 400.** The request was well-formed; it failed because of existing state. 400 would be indistinguishable from a validation error, and the frontend needs to tell those apart to show "that email is taken" rather than "check your details". Documented in the OpenAPI responses so Rana can code against it from `/docs`._
+
+_**Checked twice: a pre-check and a caught `IntegrityError`.** The pre-check gives the clean message; the exception handler catches the race where two requests with the same email both pass the check before either commits. Without it the loser gets a 500 — rare on SQLite, entirely real on Postgres under load._
+
+_Duplicate detection is case-insensitive, because `normalise_email()` runs in the schema validator before the lookup._
+
+✅ **Task 52** — `POST /api/login` — verify the hash, return a JWT. Token carries `user_id` and `role`. — **done**
+
+_`app/core/tokens.py`, plus `login` in `app/routers/auth.py`. **199 tests pass** (20 new)._
+
+_**The same 401 for an unknown email and a wrong password.** Different messages would turn this endpoint into an **account enumerator** — submit any email, learn from the response whether that person has an account. For a security-education tool, leaking its own user list would be a poor advertisement._
+
+_**The password is verified even when no user matched.** Returning early on an unknown email makes that path measurably faster, and the difference is enough to enumerate accounts **by timing alone**. A dummy hash is verified instead, so both paths cost about the same._
+
+_**A deactivated account gets 403, not 401** — the credentials were right, and a 401 would send the user into a password reset that cannot help them. But it is checked **after** the password, so a wrong password on a disabled account still answers 401; otherwise the 403 itself reveals the account exists._
+
+_**`sub` is a string, not an int.** RFC 7519 requires it, and some client libraries reject a numeric subject. Converted on the way in and back on the way out, so callers still deal in ints._
+
+_**`decode_token()` returns `None`, never raises.** Expired, tampered, malformed and wrong-algorithm tokens all mean "not authenticated", and a caller should not need to tell them apart to produce a 401. Tests forge a signature, swap `role` to `admin` in the payload, and feed in garbage — all rejected._
+
+_The algorithm is pinned on decode, so a token claiming `alg: none` is refused rather than trusted._
+
+_**⚠️ FOR TASK 55:** the role travels **in the token**, which avoids a database lookup per request but means a role change does not take effect until the token expires — an admin demoted at 10:00 keeps admin rights until 11:00. Acceptable at a 60-minute expiry. **If Task 55 needs immediate revocation, it must read the role from the database rather than trusting the claim.**_
+
+✅ **Task 53** — Reject wrong password with **401**. Same generic message for "wrong password" and "no such user". — **done** (delivered with Task 52; `test_unknown_email_is_401_with_the_same_message` asserts both the status **and** the detail string match, so the endpoint cannot be used to discover which emails have accounts. The dummy-hash verification also equalises response time, closing the timing side-channel that a status-code check alone would leave open.)
+
+✅ **Task 54** — `GET /api/profile` — JWT-protected; 401 without a valid token. — **done**
+
+_`app/core/deps.py` + the `profile` route. **215 tests pass** (16 new)._
+
+_**The endpoint takes no `user_id` parameter, on purpose.** One that did would need an authorisation check to stop user 1 reading user 2's profile, and forgetting that check is among the commonest API vulnerabilities. Reading the id from the verified token makes the bug **unexpressible**. Admin access to other users' records belongs in Task 64, behind `require_roles("admin")`._
+
+_**A missing header returns 401, not 403.** FastAPI's `HTTPBearer` defaults to 403 for a missing `Authorization` header, which is the wrong code — "you did not authenticate" is 401. Fixed with `auto_error=False` so our handler produces one consistent answer for missing, malformed and expired tokens alike._
+
+_**Deactivation takes effect immediately.** An existing token stops working on the next request, because the user is loaded from the database and `is_active` is re-checked. Had the user been read from the token, deactivating an account would have done nothing for up to an hour — defeating the point of deactivating it._
+
+✅ **Task 55** — Role field, enforced by a reusable dependency. — **done**
+
+_`require_roles(*roles)` is a factory, so `Depends(require_roles("admin"))` keeps the allowed set beside the endpoint it guards rather than in a separate route-to-role table that drifts. `require_admin` is provided for the common case._
+
+_**⚠️ RESOLVED THE TASK 52 STALENESS WARNING — the role is read from the database, never from the token.** Task 52 flagged that carrying `role` in the JWT means a demotion lags until expiry. This takes the safe side: one indexed primary-key lookup per request is cheap, a stale privilege is not. The claim stays in the token for clients to read, but **the server never trusts it**._
+
+_Two tests prove it: a demoted admin loses access on the **next request**, and a correctly-signed token *claiming* `admin` for a student account is still refused 403._
+
+_Insufficient role is **403, not a concealing 404** — these routes appear in the OpenAPI schema anyway, so a 404 would mislead legitimate users without hiding anything from anyone who read `/docs`._
 
 > **🔴 Frontend Tasks 71–73 (wiring Register / Login / route guard) depend on Tasks 50 / 52 / 54.** Frontend UI-only Tasks 69–70 do not.
 
 ### Prompt Analysis Endpoints
 
-🔴 **Task 56** — `POST /api/analyze-prompt` — **needs ML Task 35 merged** (`ml/inference/classifier.py` → `classify(text)`).
-  **Unblock trick:** if ML is still running, stub `classify()` behind an interface — e.g. a keyword rule ("ignore previous instructions" → Direct Jailbreak) — and keep building Tasks 57–66. Swap in the real classifier when Task 35 lands. Keep the stub in one file so the swap is a one-line change.
+✅ **Task 56** — `POST /api/analyze-prompt` — **done** (no stub needed; ML Task 35 is merged)
 
-🟡 **Task 57** — Persist the `AnalysisResult` row (and the `AttackSubtype` row when a sub-type is returned).
+✅ **Task 57** — Persist the `AnalysisResult` row (and the `AttackSubtype` row when a sub-type is returned). — **done**
 
-🟡 **Task 58** — Test with a jailbreak-style prompt end to end; confirm the stored row matches the response.
+✅ **Task 58** — Test with a jailbreak-style prompt end to end; confirm the stored row matches the response. — **done**
 
-🟡 **Task 59** — `POST /api/safe-prompt` — rule/template-based rewrite (no live LLM call in v1).
+_`app/routers/analysis.py`, `app/services/classifier.py`, `app/schemas/analysis.py`. **232 tests pass, 1 skipped.** This is where the ML track meets the API._
+
+_**THE CENTRAL DECISION: torch is NOT installed in the backend venv, and the import is lazy.** The ML wrapper needs torch and transformers — about 2 GB. Three reasons not to force that on the API: the suite runs in ~50s precisely because nothing imports torch; Rana's frontend work needs a running API, not a working model; and a deployment serving only the dashboard does not need inference._
+
+_So `app/services/classifier.py` imports inside the function, on first use, and **a missing model is 503, not a crash at startup**. 503 is honest — the endpoint is fine, the capability is not. `/health` now reports `model_available`: actually loadable, not merely configured._
+
+_**Verified against the real model**, not only stubs. The backend venv cannot import torch, so the service-layer contract was exercised from the ML venv:_
+
+```
+Safe prompt                        -> Safe              conf 1.000  severity Low
+"Ignore all previous instructions" -> Direct Jailbreak  conf 1.000  severity High
+"You are now DAN"                  -> Direct Jailbreak  conf 0.998  severity High
+All labels in PROMPT_TYPES -- no taxonomy drift.
+```
+
+_**The prompt is stored BEFORE it is classified**, as `pending`, and survives a classifier failure. Classifying first would lose every prompt that crashed the model — and for a security tool those are the interesting ones. A test asserts the row remains `pending` after a 503._
+
+_**One transaction for prompt + analysis + sub-type.** A partial commit would leave an analysed prompt with no analysis, or a sub-type pointing at nothing — states the Tasks 60–63 analytics cannot interpret._
+
+_**Oversized input is 422 at the edge** (20,000 chars ≈ 5,000 tokens), not a 500 from the database and not wasted inference time. Task 42 deliberately left the column uncapped; the limit belongs here._
+
+_**An impossible sub-type is dropped, not stored** — `is_valid_for()` from Task 44 rejects e.g. "Policy Evasion" under an Indirect Injection result._
+
+_**Role Override is flagged, not hidden** — `subtypeReliable: false` travels in the response, so the UI can qualify a sub-type the model scores 0.00 F1 on._
+
+_**The endpoint requires authentication.** Not stated in the plan, but `Prompt.user_id` exists, Task 60 shows "my prompts", and an anonymous endpoint would let anyone spend the inference budget._
+
+_**`.env.example` corrected** — it named `MODEL_PATH` while the ML wrapper reads `PROMPTSHIELD_MODEL_PATH`, and pointed at a checkpoint directory that does not exist. It now documents both variables, the real path, how to generate a JWT secret, and that the sub-type model is optional._
+
+🔵 **Task 59** — `POST /api/safe-prompt` — rule/template-based rewrite (no live LLM call in v1).
 
 🟡 **Task 60** — `POST /api/avatar-guide` — template-based explanation keyed by `prompt_type` + `subtype`.
 

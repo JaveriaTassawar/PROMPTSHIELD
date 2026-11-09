@@ -23,7 +23,23 @@ from __future__ import annotations
 
 # Re-exported so `import app.models` registers everything on Base.metadata.
 from app.models.analysis import AnalysisResult  # noqa: F401
+from app.models.guidance import AvatarGuidance  # noqa: F401
+from app.models.mitigation import MitigationAction  # noqa: F401
+from app.models.progress import LearningProgress  # noqa: F401
 from app.models.prompt import Prompt  # noqa: F401
+from app.models.simulation import SimulationSession  # noqa: F401
+from app.models.subtype import AttackSubtype  # noqa: F401
+from app.models.suggestion import SafeSuggestion  # noqa: F401
 from app.models.user import User  # noqa: F401
 
-__all__ = ["AnalysisResult", "Prompt", "User"]
+__all__ = [
+    "AnalysisResult",
+    "AttackSubtype",
+    "AvatarGuidance",
+    "LearningProgress",
+    "MitigationAction",
+    "Prompt",
+    "SafeSuggestion",
+    "SimulationSession",
+    "User",
+]

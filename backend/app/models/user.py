@@ -58,8 +58,24 @@ if TYPE_CHECKING:
 
 # Pinned by Task 55. Kept as a module constant so the dependency there and
 # the schema here cannot drift apart.
-USER_ROLES = ("student", "developer", "researcher", "admin")
+#
+# `organization` is not in the plan's Task 55 list but IS offered by
+# frontend/src/pages/RegisterPage.jsx. Without it, a user choosing
+# "Organization" in the live form gets a 422 from a CHECK constraint. Added
+# here rather than removed there, because the frontend option is a product
+# decision and the backend list was an implementation detail.
+USER_ROLES = ("student", "developer", "researcher", "organization", "admin")
 DEFAULT_ROLE = "student"
+
+# Roles a visitor may choose at sign-up. `admin` is deliberately absent:
+# the registration endpoint accepts a role from an unauthenticated request,
+# so including it would let anyone grant themselves administrator rights.
+# frontend/src/pages/RegisterPage.jsx makes the same exclusion in its own
+# comment -- this is the server-side enforcement of it.
+#
+# Granting `admin` is an administrative action and belongs behind the
+# role-gated dependency in Task 55, not in a public form.
+SELF_ASSIGNABLE_ROLES = tuple(r for r in USER_ROLES if r != "admin")
 
 # bcrypt always emits 60 characters.
 BCRYPT_HASH_LENGTH = 60
@@ -114,6 +130,23 @@ class User(Base):
     # historical totals. See the Prompt model, decision 2.
     prompts: Mapped[list["Prompt"]] = relationship(
         "Prompt", back_populates="user"
+    )
+
+    # These two DO cascade, unlike prompts. A prompt is evidence the
+    # analytics aggregate over, so it survives its user anonymised; a
+    # training session and a module record are personal progress with no
+    # meaning detached from the person, and orphans would inflate
+    # completion counts for users who no longer exist.
+    simulations: Mapped[list["SimulationSession"]] = relationship(  # noqa: F821
+        "SimulationSession",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    progress: Mapped[list["LearningProgress"]] = relationship(  # noqa: F821
+        "LearningProgress",
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
 
     __table_args__ = (

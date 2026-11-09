@@ -2,10 +2,13 @@ fastapi
 uvicorn[standard]
 sqlalchemy
 alembic
-pydantic
+pydantic[email]
 pydantic-settings
 python-dotenv
-passlib[bcrypt]
+# bcrypt directly, not passlib: passlib 1.7.4 reads bcrypt.__about__ which
+# bcrypt 5.0 removed, so every hash call raises. passlib's last release was
+# 2020. See app/core/security.py decision 1.
+bcrypt
 python-jose[cryptography]
 python-multipart
 httpx
