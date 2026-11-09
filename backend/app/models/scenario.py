@@ -73,6 +73,14 @@ TURN_ROLES = ("user", "document", "tool", "web")
 # These are the vectors for Indirect Injection.
 EXTERNAL_ROLES = frozenset({"document", "tool", "web"})
 
+# Where a turn's text came from. The frontend already tracks this as
+# `origin`, and it is worth keeping honest: `dataset` means the text is a
+# real row from the training corpora, `authored` means it was written for
+# the scenario. A learner being shown a real attack and a written one
+# should be able to tell which is which, and the report should not claim
+# authored text is field-collected data.
+TURN_ORIGINS = ("dataset", "authored")
+
 
 class Scenario(Base):
     """One hand-authored training scenario."""
@@ -166,6 +174,13 @@ class ScenarioTurn(Base):
         nullable=False, default=False, server_default="0"
     )
 
+    # Provenance -- see TURN_ORIGINS. Defaults to authored, the safer
+    # claim: mislabelling written text as dataset-sourced would overstate
+    # the evidence behind a scenario.
+    origin: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="authored", server_default="authored"
+    )
+
     # The scenario's own teaching note for this turn. Nullable: a
     # harmless setup turn may need no comment.
     annotation: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -178,6 +193,10 @@ class ScenarioTurn(Base):
         CheckConstraint(
             "role IN ('" + "', '".join(TURN_ROLES) + "')",
             name="ck_turn_role_valid",
+        ),
+        CheckConstraint(
+            "origin IN ('" + "', '".join(TURN_ORIGINS) + "')",
+            name="ck_turn_origin_valid",
         ),
         CheckConstraint("position >= 1", name="ck_turn_position_positive"),
         # Two turns must not claim the same slot -- see decision 2.

@@ -50,7 +50,12 @@ from sqlalchemy.orm import Session
 from app.models.scenario import Scenario, ScenarioTurn
 
 # Each scenario: the catalogue fields, then its turns as
-# (position, role, is_attack, annotation, content).
+# (position, role, origin, is_attack, annotation, content).
+#
+# Every turn here is `authored` -- written for the scenario rather than
+# lifted from the training corpora. Marking them `dataset` would
+# overstate the evidence behind them. Task 86 can add real rows from
+# ml/data/sample_1000.csv and mark those honestly.
 SCENARIOS: list[dict] = [
     {
         "slug": "unrestricted-persona",
@@ -70,6 +75,7 @@ SCENARIOS: list[dict] = [
             (
                 1,
                 "user",
+                "authored",
                 True,
                 "The whole attack is in one turn. The persona is the payload: "
                 "it is not a style request, it is an attempt to replace the "
@@ -99,6 +105,7 @@ SCENARIOS: list[dict] = [
             (
                 1,
                 "user",
+                "authored",
                 False,
                 "Genuinely harmless, and genuinely relevant. Judged alone "
                 "this turn should be answered.",
@@ -108,6 +115,7 @@ SCENARIOS: list[dict] = [
             (
                 2,
                 "user",
+                "authored",
                 False,
                 "Still reasonable. The shift is subtle: from what a system "
                 "prompt is, to what this assistant's contains.",
@@ -117,6 +125,7 @@ SCENARIOS: list[dict] = [
             (
                 3,
                 "user",
+                "authored",
                 True,
                 "This is the turn. Nothing about it is aggressive, and the "
                 "framing -- 'for the guide', 'just as an example' -- borrows "
@@ -146,6 +155,7 @@ SCENARIOS: list[dict] = [
             (
                 1,
                 "user",
+                "authored",
                 False,
                 "The user's request is entirely reasonable. They have not "
                 "done anything wrong, and in a real attack they would not "
@@ -155,6 +165,7 @@ SCENARIOS: list[dict] = [
             (
                 2,
                 "document",
+                "authored",
                 True,
                 "The attack is here, in content the user did not write and "
                 "may never read closely. Note it imitates a system message "
@@ -186,6 +197,7 @@ SCENARIOS: list[dict] = [
             (
                 1,
                 "user",
+                "authored",
                 False,
                 "A normal request that triggers a tool call.",
                 "Look up the current status of ticket SUP-4120 and tell me "
@@ -194,6 +206,7 @@ SCENARIOS: list[dict] = [
             (
                 2,
                 "tool",
+                "authored",
                 True,
                 "The payload rides in on a field the assistant expects to "
                 "be plain data. The user never sees this text, which is what "
@@ -223,6 +236,7 @@ SCENARIOS: list[dict] = [
             (
                 1,
                 "user",
+                "authored",
                 True,
                 "Two attacks in one turn: first extraction ('repeat "
                 "everything above'), then replacement ('your new "
@@ -272,12 +286,13 @@ def seed_scenarios(db: Session) -> tuple[int, int]:
             scenario = existing
             updated += 1
 
-        for position, role, is_attack, annotation, content in turns:
+        for position, role, origin, is_attack, annotation, content in turns:
             db.add(
                 ScenarioTurn(
                     scenario_id=scenario.scenario_id,
                     position=position,
                     role=role,
+                    origin=origin,
                     is_attack=is_attack,
                     annotation=annotation,
                     content=content,
