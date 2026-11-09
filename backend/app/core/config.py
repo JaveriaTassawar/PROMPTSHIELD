@@ -39,7 +39,23 @@ def _load_dotenv() -> None:
 
     Optional on purpose: in a container the variables are already in the
     environment and there is no file to read. A missing .env is not an error.
+
+    SET PROMPTSHIELD_SKIP_DOTENV TO IGNORE THE FILE.
+
+    Tests that manipulate these variables need to, and without it their
+    result depends on whether the developer happens to have a local .env.
+    That is a real failure mode, not a hypothetical: creating a .env on
+    this machine broke test_model_path_accepts_either_env_name, which
+    deletes PROMPTSHIELD_MODEL_PATH and was silently having it restored
+    here. A test suite that passes or fails based on an untracked file is
+    worse than one that fails honestly.
+
+    load_dotenv does not override variables already set, so a real
+    environment still wins over the file.
     """
+    if os.getenv("PROMPTSHIELD_SKIP_DOTENV"):
+        return
+
     try:
         from dotenv import load_dotenv
     except ImportError:
