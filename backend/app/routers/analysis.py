@@ -45,15 +45,19 @@ from app.core.deps import get_current_user
 from app.models.analysis import AnalysisResult
 from app.models.prompt import Prompt
 from app.models.subtype import AttackSubtype
+from app.models.guidance import AvatarGuidance
 from app.models.suggestion import SafeSuggestion
 from app.models.user import User
 from app.schemas.analysis import (
     AnalyzeRequest,
     AnalyzeResponse,
+    AvatarGuideRequest,
+    AvatarGuideResponse,
     SafePromptRequest,
     SafePromptResponse,
 )
 from app.services.classifier import ClassifierUnavailable, classify_prompt
+from app.services.guidance import build_guidance
 from app.services.mitigation import build_suggestion
 
 router = APIRouter(prefix="/api", tags=["analysis"])
@@ -137,6 +141,21 @@ def analyze_prompt(
                 suggestion_reason=suggestion.reason,
             )
         )
+
+    # Task 60: the avatar's explanation, stored alongside (Task 47).
+    # Generated for every class including Safe -- unlike the suggestion,
+    # there is something worth saying about a safe prompt.
+    guidance = build_guidance(
+        result.label, result.subtype, result.subtype_reliable
+    )
+    message, explanation = guidance.flatten()
+    db.add(
+        AvatarGuidance(
+            analysis_id=analysis.analysis_id,
+            message_text=message,
+            explanation=explanation,
+        )
+    )
 
     # One commit for all of it -- see decision 2.
     db.commit()
@@ -236,4 +255,87 @@ def safe_prompt(
         suggestedPrompt=suggestion.suggested_prompt,
         reason=suggestion.reason,
         isTemplate=suggestion.is_template,
+    )
+
+
+@router.post(
+    "/avatar-guide",
+    response_model=AvatarGuideResponse,
+    responses={
+        401: {"description": "Missing or invalid token"},
+        404: {"description": "promptId does not belong to the caller"},
+        422: {"description": "Unknown classification"},
+    },
+)
+def avatar_guide(
+    payload: AvatarGuideRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> AvatarGuideResponse:
+    """What Aria says about a classification.
+
+    Task 60. Template-based, keyed by `classification` and `subtype`.
+
+    THE PROMPT TEXT IS NOT A PARAMETER.
+
+    The guidance explains the attack class, never the specific prompt, so
+    it is not needed -- and not accepting it is the safer default, since
+    the prompt may be an attack payload and echoing it into a panel the
+    user reads as authoritative would be its own problem.
+
+    No LLM, for the same reason as Task 59 and more so here: this text is
+    shown as authoritative security advice. Generating it from a model
+    with the attack as input would let an attacker influence the advice
+    our own tool gives.
+    """
+    try:
+        guidance = build_guidance(
+            payload.classification, payload.subtype, payload.subtypeReliable
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+
+    if payload.promptId is not None:
+        prompt = db.get(Prompt, payload.promptId)
+
+        # Checked against the caller, not just existence -- otherwise any
+        # authenticated user could write guidance onto another user's
+        # analysis by guessing an id.
+        if prompt is None or prompt.user_id != user.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No such prompt for this account.",
+            )
+
+        if prompt.analysis is not None:
+            message, explanation = guidance.flatten()
+            existing = prompt.analysis.guidance
+            if existing is None:
+                db.add(
+                    AvatarGuidance(
+                        analysis_id=prompt.analysis.analysis_id,
+                        message_text=message,
+                        explanation=explanation,
+                    )
+                )
+            else:
+                # analysis_id is unique (Task 47), so regenerating
+                # updates rather than appending.
+                existing.message_text = message
+                existing.explanation = explanation
+            db.commit()
+
+    return AvatarGuideResponse(
+        summary=guidance.summary,
+        whyTitle=guidance.whyTitle,
+        why=guidance.why,
+        nextSteps=guidance.nextSteps,
+        do=guidance.do,
+        dont=guidance.dont,
+        keyDefence=guidance.keyDefence,
+        source=guidance.source,
+        scope=guidance.scope,
     )

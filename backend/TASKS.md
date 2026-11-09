@@ -455,7 +455,23 @@ _Regenerating **updates** the row rather than appending, honouring the unique co
 
 _**⚠️ Fixed a test-isolation bug this exposed.** Creating a local `.env` broke `test_model_path_accepts_either_env_name`: the test deletes `PROMPTSHIELD_MODEL_PATH`, and `_load_dotenv()` silently restored it from the file. **A suite that passes or fails based on an untracked file is worse than one that fails honestly**, so `PROMPTSHIELD_SKIP_DOTENV` now exists and an autouse fixture sets it for every test._
 
-🟡 **Task 60** — `POST /api/avatar-guide` — template-based explanation keyed by `prompt_type` + `subtype`.
+✅ **Task 60** — `POST /api/avatar-guide` — template-based explanation keyed by `prompt_type` + `subtype`. — **done**
+
+_`app/services/guidance.py` + the `avatar-guide` route. **275 tests pass** (21 new)._
+
+_**✅ RESOLVED THE TASK 47 SHAPE MISMATCH.** Task 47 found the frontend's guidance object richer than the `AvatarGuidance` table's two columns and deferred the choice. Decided: **return the frontend's full shape, store a flattened version**._
+
+_Returning two fields would have forced the frontend to restructure its panel or discard most of the response. Extending the table to seven columns would have put presentation structure in the schema, where a wording change becomes a migration. **A test parses `frontend/src/config/ariaGuidance.js` and compares field names** — all nine match (`summary`, `whyTitle`, `why`, `nextSteps`, `do`, `dont`, `keyDefence`, `source`, `scope`), and the guard catches a drift in either direction. `useAriaGuidance` is now a one-line swap, exactly as its own comment anticipated._
+
+_**The prompt text is not a request field.** The guidance explains the attack *class*, never the instance, so it is not needed — and not accepting it is the safer default, since the prompt may be an attack payload and echoing it into a panel the user reads as authoritative would be its own problem. A test writes a marker string into a prompt and asserts it reaches neither stored column._
+
+_**No LLM, and this matters more than for Task 59.** Guidance is shown as authoritative security advice. Generating it from a model with the attack as input would let an attacker **influence the advice our own tool gives** — a prompt injection against the prompt-injection teacher. Fixed text cannot be steered._
+
+_**An unreliable sub-type is disclosed, not asserted.** When `subtypeReliable` is false the `why` text says the sub-type may be inaccurate while the main classification is not. Role Override scores 0.00 F1 and is never predicted, so a confident label there would be actively misleading._
+
+_**Safe prompts get guidance** — unlike the Task 59 suggestion, which is `None` for Safe. There is something worth saying about a safe prompt; there is nothing worth "fixing"._
+
+_`promptId` is optional and checked against the caller, same as Task 59, with a test for the cross-user write. Regenerating updates the row rather than appending, honouring Task 47's unique constraint._
 
 🟡 **Task 61** — `GET /api/history` — JWT-protected, returns the caller's own prompts + results, newest first, paginated.
 

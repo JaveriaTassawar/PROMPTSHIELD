@@ -90,3 +90,42 @@ class SafePromptResponse(BaseModel):
     # mechanically made safe, since its intent is the problem. The UI must
     # not imply otherwise.
     isTemplate: bool = False
+
+
+class AvatarGuideRequest(BaseModel):
+    """Body of POST /api/avatar-guide.
+
+    Takes the classification rather than the prompt. The guidance
+    explains the attack *class*, never the specific prompt, so the
+    prompt text is not needed -- and not sending it is the safer
+    default, since it may be an attack payload.
+
+    `promptId` is optional: supplied, the guidance is stored against
+    that analysis (Task 47); omitted, it is returned without persisting,
+    which the Learning Hub needs for example prompts.
+    """
+
+    classification: str
+    subtype: str | None = None
+    subtypeReliable: bool = True
+    promptId: int | None = None
+
+
+class AvatarGuideResponse(BaseModel):
+    """Aria's guidance.
+
+    Field names match frontend/src/config/ariaGuidance.js exactly, so
+    useAriaGuidance can switch source without the panel changing. See
+    app/services/guidance.py for why the shape is the frontend's rather
+    than the database table's.
+    """
+
+    summary: str
+    whyTitle: str
+    why: str
+    nextSteps: list[str] = Field(default_factory=list)
+    do: list[str] = Field(default_factory=list)
+    dont: list[str] = Field(default_factory=list)
+    keyDefence: str | None = None
+    source: str = "backend"
+    scope: str = "class"
