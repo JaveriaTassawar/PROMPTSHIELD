@@ -81,6 +81,20 @@ class SimulationSession(Base):
         index=True,
     )
 
+    # Added at Task 62, when scenarios became real rows. Nullable and
+    # SET NULL: a retired scenario must not delete the sessions that
+    # recorded someone running it, and the denormalised scenario_name
+    # below keeps those sessions readable afterwards.
+    scenario_id: Mapped[int | None] = mapped_column(
+        ForeignKey("scenarios.scenario_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    # Kept alongside scenario_id on purpose. A session is a historical
+    # record, and a scenario's title may be reworded later -- storing the
+    # name as it was at the time means the Tasks 60-63 analytics report
+    # what the user actually saw.
     scenario_name: Mapped[str] = mapped_column(String(120), nullable=False)
 
     description: Mapped[str | None] = mapped_column(Text, nullable=True)

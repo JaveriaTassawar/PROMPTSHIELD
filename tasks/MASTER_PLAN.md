@@ -317,8 +317,8 @@ _Task 56 is the hard ML dependency — see join point #1 above._
 
 ### Backend (Jawaria) — Simulation / Analytics / Admin
 
-🔵 Task 62 — Seed 3-5 sandbox scenarios covering a spread of the 8 sub-types. Scenario scripts are hand-authored narrative content, so this does not depend on ML — real example prompts can be lifted from the SafeMTData multi-turn conversations and the Microsoft llmail submissions once Task 14 has downloaded them. Only becomes 🔴 (pending Task 37) if a scenario needs live classification of free-text the user types mid-simulation.
-🟡 Task 63 — POST /api/simulate-attack
+✅ Task 62 — Seed 3–5 sandbox scenarios — **done** (314 tests pass; 5 scenarios, 9 turns, migration `30eb1408b4d1`, seeded via `python -m app.seed.scenarios`. **Two tables were needed and were not in the plan** — `SimulationSession` stores a *run*, not the scenario. **Role Override deliberately omitted and a test enforces it**: the sub-type model scores 0.00 F1 there, so a scenario teaching users to spot it would teach against the tool. Attack text is **defanged** — realistic shape, harmless ask — since shipping working payloads would put them in the repo. `is_attack` is per turn, so the Multi-Turn scenario can have genuinely harmless early turns. Seed is idempotent. **⚠️ Autogenerate produced a broken downgrade** — unnamed FK then `drop_constraint(None)`; second Alembic gotcha after CHECK constraints)
+🔵 Task 63 — POST /api/simulate-attack
 🟡 Task 64 — GET /api/dashboard
 🟡 Task 65 — GET /api/admin/users (403 for non-admin)
 🟡 Task 66 — Confirm error status codes
