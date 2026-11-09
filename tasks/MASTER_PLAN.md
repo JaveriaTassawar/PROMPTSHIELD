@@ -311,8 +311,8 @@ _Task 56 is the hard ML dependency — see join point #1 above._
 ✅ Task 56 — POST /api/analyze-prompt — **done** (232 tests pass. **torch is deliberately NOT in the backend venv** — the import is lazy and a missing model is **503, not a startup crash**; the suite stays at ~50s and the API runs without 2 GB of ML dependencies. Verified against the real model from the ML venv: Safe/Direct Jailbreak both correct, no taxonomy drift. **The prompt is stored before classification** so a model failure does not lose it. One transaction for prompt+analysis+subtype. Oversized input 422 at the edge. `.env.example` corrected)
 ✅ Task 57 — Store AnalysisResult row — **done** (delivered with Task 56; prompt + analysis + sub-type commit as one transaction so a partial write cannot leave an analysed prompt with no analysis)
 ✅ Task 58 — Test with jailbreak-style prompt — **done** (`test_stored_row_matches_the_response` compares the stored row against the returned body field by field — checking each separately can both pass while they disagree)
-🔵 Task 59 — POST /api/safe-prompt
-🟡 Task 60 — POST /api/avatar-guide
+✅ Task 59 — POST /api/safe-prompt — **done** (254 tests pass; `/api/analyze-prompt` now fills `safePromptSuggestion`. **The honest limit is in the code**: an attack cannot be mechanically rewritten into a safe version, because the intent *is* the problem — so this returns the legitimate way to ask about the same subject, flagged `isTemplate: true`, never "your prompt, fixed". **No LLM, and not only for cost** — a model asked to rewrite a jailbreak is itself a target for it. Topic extraction refuses to guess. `promptId` checked against the caller, with a test for the cross-user write. **Fixed a test-isolation bug this exposed**: a local `.env` was silently restoring a variable a test had deleted)
+🔵 Task 60 — POST /api/avatar-guide
 🟡 Task 61 — GET /api/history
 
 ### Backend (Jawaria) — Simulation / Analytics / Admin

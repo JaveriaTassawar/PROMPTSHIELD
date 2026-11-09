@@ -1,5 +1,11 @@
 """Shared test fixtures.
 
+The autouse fixture below makes the suite ignore any local .env. Without
+it, a developer with a .env gets different results from one without --
+and that is not hypothetical: creating one on this machine broke
+test_model_path_accepts_either_env_name, because the file silently
+restored a variable the test had deleted.
+
 The `client` fixture overrides `get_db` so endpoint tests run against a
 throwaway database rather than `backend/promptshield.db`. Without the
 override, tests would write real rows into the development database and
@@ -54,3 +60,19 @@ def client(db_session: Session) -> TestClient:
     with TestClient(application) as test_client:
         yield test_client
     application.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def _ignore_local_dotenv(monkeypatch):
+    """Make every test independent of a developer's local .env.
+
+    Also clears the cached Settings, so a test that changes an
+    environment variable is not served a value computed before it ran.
+    """
+    monkeypatch.setenv("PROMPTSHIELD_SKIP_DOTENV", "1")
+
+    from app.core.config import get_settings
+
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()

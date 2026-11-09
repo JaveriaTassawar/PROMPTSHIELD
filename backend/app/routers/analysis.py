@@ -45,9 +45,16 @@ from app.core.deps import get_current_user
 from app.models.analysis import AnalysisResult
 from app.models.prompt import Prompt
 from app.models.subtype import AttackSubtype
+from app.models.suggestion import SafeSuggestion
 from app.models.user import User
-from app.schemas.analysis import AnalyzeRequest, AnalyzeResponse
+from app.schemas.analysis import (
+    AnalyzeRequest,
+    AnalyzeResponse,
+    SafePromptRequest,
+    SafePromptResponse,
+)
 from app.services.classifier import ClassifierUnavailable, classify_prompt
+from app.services.mitigation import build_suggestion
 
 router = APIRouter(prefix="/api", tags=["analysis"])
 
@@ -118,6 +125,19 @@ def analyze_prompt(
             )
         )
 
+    # Task 59: the safer-phrasing suggestion, stored alongside (Task 46)
+    # so /api/history and the dashboard can show it without recomputing.
+    # None for Safe prompts, which is the correct answer rather than a gap.
+    suggestion = build_suggestion(payload.prompt, result.label, result.subtype)
+    if suggestion is not None:
+        db.add(
+            SafeSuggestion(
+                analysis_id=analysis.analysis_id,
+                suggested_prompt=suggestion.suggested_prompt,
+                suggestion_reason=suggestion.reason,
+            )
+        )
+
     # One commit for all of it -- see decision 2.
     db.commit()
 
@@ -129,7 +149,91 @@ def analyze_prompt(
         confidenceScore=result.confidence,
         subtypeConfidence=result.subtype_confidence,
         subtypeReliable=result.subtype_reliable,
-        # Task 57 fills this; Task 82 fills avatarFeedback.
-        safePromptSuggestion=None,
+        safePromptSuggestion=(
+            suggestion.suggested_prompt if suggestion is not None else None
+        ),
+        # Task 82 fills this; the frontend renders its own guidance today.
         avatarFeedback=None,
+    )
+
+
+@router.post(
+    "/safe-prompt",
+    response_model=SafePromptResponse,
+    responses={
+        401: {"description": "Missing or invalid token"},
+        404: {"description": "promptId does not belong to the caller"},
+        422: {"description": "Unknown classification, or prompt too long"},
+    },
+)
+def safe_prompt(
+    payload: SafePromptRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> SafePromptResponse:
+    """A safer way to ask the same thing.
+
+    Task 59. Rule and template based -- no LLM call, which the plan
+    specifies and which also avoids a real hazard: a model asked to
+    rewrite a jailbreak is itself a target for that jailbreak. Sending
+    attack text to a generative model and showing the user its output
+    would be a prompt-injection vulnerability inside a prompt-injection
+    detector.
+
+    Takes the classification rather than re-running the model, since the
+    caller already has it from /api/analyze-prompt.
+
+    `promptId` is optional. Supplied, the suggestion is stored against
+    that analysis; omitted, advice is returned without persisting --
+    which the Learning Hub needs for example prompts that are not a
+    user's own submission.
+    """
+    try:
+        suggestion = build_suggestion(
+            payload.prompt, payload.classification, payload.subtype
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+
+    if suggestion is None:
+        # Safe prompt. Not an error -- there is nothing to teach.
+        return SafePromptResponse()
+
+    if payload.promptId is not None:
+        prompt = db.get(Prompt, payload.promptId)
+
+        # Checked against the caller, not just existence. Without this,
+        # any authenticated user could attach a suggestion to another
+        # user's prompt by guessing an id.
+        if prompt is None or prompt.user_id != user.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No such prompt for this account.",
+            )
+
+        if prompt.analysis is not None:
+            existing = prompt.analysis.suggestion
+            if existing is None:
+                db.add(
+                    SafeSuggestion(
+                        analysis_id=prompt.analysis.analysis_id,
+                        suggested_prompt=suggestion.suggested_prompt,
+                        suggestion_reason=suggestion.reason,
+                    )
+                )
+            else:
+                # Task 46 made analysis_id unique, so regenerating
+                # updates rather than appending a row the API would then
+                # have to choose between.
+                existing.suggested_prompt = suggestion.suggested_prompt
+                existing.suggestion_reason = suggestion.reason
+            db.commit()
+
+    return SafePromptResponse(
+        suggestedPrompt=suggestion.suggested_prompt,
+        reason=suggestion.reason,
+        isTemplate=suggestion.is_template,
     )
